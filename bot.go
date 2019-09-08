@@ -128,6 +128,7 @@ func sendMessage(s *discordgo.Session, channelID, message string) {
 }
 
 func calculatePrecision(givenPrecision int, num float64) int {
+	num = math.Abs(num)
 	precisionTo := 0
 
 	const prec = 1e-9
