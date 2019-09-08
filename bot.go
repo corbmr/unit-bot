@@ -110,13 +110,13 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	precisionTo := calculatePrecision(precisionFrom, converted)
+	// precisionTo := calculatePrecision(precisionFrom, converted)
 
 	// matchedMessage := fmt.Sprintf("Matched: %#v", match)
 	// sendMessage(s, ch, matchedMessage)
 
-	send := fmt.Sprintf("%.*f %s = %.*f %s",
-		precisionFrom, num, unitFrom.name, precisionTo, converted, unitTo.name)
+	send := fmt.Sprintf("%.*f %s = %.6g %s",
+		precisionFrom, num, unitFrom.name, converted, unitTo.name)
 	sendMessage(s, ch, send)
 }
 
@@ -128,11 +128,12 @@ func sendMessage(s *discordgo.Session, channelID, message string) {
 }
 
 func calculatePrecision(givenPrecision int, num float64) int {
+
 	num = math.Abs(num)
 	precisionTo := 0
 
-	const prec = 1e-9
-	if _, f := math.Modf(num); f > prec && f < 1-prec {
+	const epsilon = 1e-9
+	if _, f := math.Modf(num); f > epsilon && f < 1-epsilon {
 		precisionTo += 2
 	}
 
