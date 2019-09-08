@@ -17,9 +17,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-const region = "us-west-2"
-
-var conv = regexp.MustCompile(`(?i)^!conv (\d+(?:\.(\d+))?)\s*([[:alpha:]]+)\s+to\s+([[:alpha:]]+)`)
+var conv = regexp.MustCompile(`(?i)^!conv ((?:[+-])?\d+(?:\.(\d+))?)\s*([[:alpha:]]+)\s+to\s+([[:alpha:]]+)`)
 
 func main() {
 	token, err := getBotToken()

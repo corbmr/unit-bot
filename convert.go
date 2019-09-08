@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/martinlindhe/unit"
 )
@@ -79,7 +80,7 @@ var unitMap = map[string]*Unit{
 }
 
 func parseUnit(s string) (*Unit, error) {
-	u, ok := unitMap[s]
+	u, ok := unitMap[strings.ToLower(s)]
 	if !ok {
 		return nil, fmt.Errorf("Invalid unit %s", s)
 	}
