@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"os"
 	"os/signal"
 	"regexp"
@@ -89,7 +90,7 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	ch := m.ChannelID
 
-	precision := len(match[2])
+	precisionFrom := len(match[2])
 	// ignore error because the regex ensures it will always parse
 	num, _ := strconv.ParseFloat(match[1], 64)
 
@@ -111,10 +112,16 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
+	const prec = 1e-6
+	precisionTo := precisionFrom
+	if _, f := math.Modf(converted); precisionFrom == 0 && f > prec && f < 1-prec {
+		precisionTo = 2
+	}
+
 	// matchedMessage := fmt.Sprintf("Matched: %#v", match)
 	// sendMessage(s, ch, matchedMessage)
 
-	send := fmt.Sprintf("%.*f %s = %.*f %s", precision, num, unitFrom.name, precision, converted, unitTo.name)
+	send := fmt.Sprintf("%.*f %s = %.*f %s", precisionFrom, num, unitFrom.name, precisionTo, converted, unitTo.name)
 	sendMessage(s, ch, send)
 }
 
