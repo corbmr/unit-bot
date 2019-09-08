@@ -8,7 +8,6 @@ import (
 	"os/signal"
 	"regexp"
 	"strconv"
-	"strings"
 	"syscall"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -19,7 +18,7 @@ import (
 
 const region = "us-west-2"
 
-var conv = regexp.MustCompile(`^(\d+(?:\.(\d+))?)\s*([[:alpha:]]+)\s+to\s+([[:alpha:]]+)`)
+var conv = regexp.MustCompile(`(?i)^!conv (\d+(?:\.(\d+))?)\s*([[:alpha:]]+)\s+to\s+([[:alpha:]]+)`)
 
 func main() {
 	token, err := getBotToken()
@@ -32,7 +31,7 @@ func main() {
 		log.Fatalln("error creating discord session,", err)
 	}
 
-	dg.AddHandler(messageCreate)
+	dg.AddHandler(onMessageCreate)
 
 	err = dg.Open()
 	if err != nil {
@@ -40,13 +39,15 @@ func main() {
 	}
 
 	// Wait here until CTRL-C or other term signal is received.
-	log.Println("Bot is now running.  Press CTRL-C to exit.")
+	log.Println("Unit Bot is now running")
+	log.Println("Press CTRL-C to stop")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
 
 	// Cleanly close down the Discord session.
 	dg.Close()
+	log.Println("Unit Bot has stopped running")
 }
 
 func getBotToken() (string, error) {
@@ -55,9 +56,9 @@ func getBotToken() (string, error) {
 	)
 
 	//Create a Secrets Manager client
-	sess, err := session.NewSession(&aws.Config{
-		Region: aws.String("us-west-2")},
-	)
+	sess, err := session.NewSessionWithOptions(session.Options{
+		SharedConfigState: session.SharedConfigEnable,
+	})
 	if err != nil {
 		return "", err
 	}
@@ -82,35 +83,46 @@ func getBotToken() (string, error) {
 	return secret.UnitBotToken, nil
 }
 
-func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-
-	if !strings.HasPrefix(m.Content, "!conv ") {
-		return
-	}
-
-	match := conv.FindStringSubmatch(m.Content[6:])
+func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+	match := conv.FindStringSubmatch(m.Content)
 	if match == nil {
-		const usage = "Usage: !conv {from}{units} to {units}"
-		sendMessage(s, m.ChannelID, usage)
 		return
 	}
+
+	ch := m.ChannelID
 
 	precision := len(match[2])
 	// ignore error because the regex ensures it will always parse
 	num, _ := strconv.ParseFloat(match[1], 64)
-	unitFrom, unitTo := match[3], match[4]
-	converted := convert(num, unitFrom, unitTo)
 
-	matchedMessage := fmt.Sprintf("Matched: %#v", match)
-	sendMessage(s, m.ChannelID, matchedMessage)
+	unitFrom, err := parseUnit(match[3])
+	if err != nil {
+		sendMessage(s, ch, err.Error())
+		return
+	}
 
-	send := fmt.Sprintf("%.*f %s = %*.f %s", precision, num, unitFrom, precision, converted, unitTo)
-	sendMessage(s, m.ChannelID, send)
+	unitTo, err := parseUnit(match[4])
+	if err != nil {
+		sendMessage(s, ch, err.Error())
+		return
+	}
+
+	converted, err := convert(num, unitFrom, unitTo)
+	if err != nil {
+		sendMessage(s, ch, err.Error())
+		return
+	}
+
+	// matchedMessage := fmt.Sprintf("Matched: %#v", match)
+	// sendMessage(s, ch, matchedMessage)
+
+	send := fmt.Sprintf("%.*f %s = %.*f %s", precision, num, unitFrom.name, precision, converted, unitTo.name)
+	sendMessage(s, ch, send)
 }
 
 func sendMessage(s *discordgo.Session, channelID, message string) {
 	_, err := s.ChannelMessageSend(channelID, message)
 	if err != nil {
-		log.Println("Unable to send message", message)
+		log.Println("Unable to send message", err)
 	}
 }
