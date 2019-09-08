@@ -29,6 +29,7 @@ var (
 	inch       = &Unit{length, "in"}
 	foot       = &Unit{length, "ft"}
 	mile       = &Unit{length, "miles"}
+	furlong    = &Unit{length, "furlongs"}
 
 	gram     = &Unit{weight, "g"}
 	kilogram = &Unit{weight, "kg"}
@@ -73,6 +74,8 @@ var unitMap = map[string]*Unit{
 	"celcius":     celcius,
 	"f":           fahrenheit,
 	"fahrenheit":  fahrenheit,
+	"furlong":     furlong,
+	"furlongs":    furlong,
 }
 
 func parseUnit(s string) (*Unit, error) {
@@ -85,7 +88,7 @@ func parseUnit(s string) (*Unit, error) {
 
 func convert(num float64, unitFrom, unitTo *Unit) (float64, error) {
 	if unitFrom.utype != unitTo.utype {
-		return 0, fmt.Errorf("Cannot convert from %s to %s", unitFrom.name, unitTo.name)
+		return 0, fmt.Errorf("Can't convert from %s to %s", unitFrom.name, unitTo.name)
 	}
 
 	switch unitFrom.utype {
@@ -119,6 +122,8 @@ func convertLength(num float64, unitFrom, unitTo *Unit) float64 {
 		from = length * unit.Inch
 	case mile:
 		from = length * unit.Mile
+	case furlong:
+		from = length * unit.Furlong
 	}
 
 	var to float64
@@ -137,6 +142,8 @@ func convertLength(num float64, unitFrom, unitTo *Unit) float64 {
 		to = from.Inches()
 	case mile:
 		to = from.Miles()
+	case furlong:
+		to = from.Furlongs()
 	}
 	return to
 }

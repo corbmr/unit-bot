@@ -56,9 +56,7 @@ func getBotToken() (string, error) {
 	)
 
 	//Create a Secrets Manager client
-	sess, err := session.NewSessionWithOptions(session.Options{
-		SharedConfigState: session.SharedConfigEnable,
-	})
+	sess, err := session.NewSession()
 	if err != nil {
 		return "", err
 	}
