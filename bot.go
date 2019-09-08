@@ -110,16 +110,13 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	const prec = 1e-6
-	precisionTo := precisionFrom
-	if _, f := math.Modf(converted); precisionFrom == 0 && f > prec && f < 1-prec {
-		precisionTo = 2
-	}
+	precisionTo := calculatePrecision(precisionFrom, converted)
 
 	// matchedMessage := fmt.Sprintf("Matched: %#v", match)
 	// sendMessage(s, ch, matchedMessage)
 
-	send := fmt.Sprintf("%.*f %s = %.*f %s", precisionFrom, num, unitFrom.name, precisionTo, converted, unitTo.name)
+	send := fmt.Sprintf("%.*f %s = %.*f %s",
+		precisionFrom, num, unitFrom.name, precisionTo, converted, unitTo.name)
 	sendMessage(s, ch, send)
 }
 
@@ -128,4 +125,23 @@ func sendMessage(s *discordgo.Session, channelID, message string) {
 	if err != nil {
 		log.Println("Unable to send message", err)
 	}
+}
+
+func calculatePrecision(givenPrecision int, num float64) int {
+	precisionTo := 0
+
+	const prec = 1e-9
+	if _, f := math.Modf(num); f > prec && f < 1-prec {
+		precisionTo += 2
+	}
+
+	if precisionTo < givenPrecision {
+		precisionTo = givenPrecision
+	}
+
+	if log10 := int(math.Log10(num)); log10 < 0 {
+		precisionTo -= log10
+	}
+
+	return precisionTo
 }

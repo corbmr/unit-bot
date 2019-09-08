@@ -59,6 +59,7 @@ var unitMap = map[string]*Unit{
 	"ft":          foot,
 	"foot":        foot,
 	"feet":        foot,
+	"mi":          mile,
 	"mile":        mile,
 	"miles":       mile,
 	"g":           gram,
