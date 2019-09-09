@@ -116,7 +116,7 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// sendMessage(s, ch, matchedMessage)
 
 	send := fmt.Sprintf("%.*f %s = %.6g %s",
-		precisionFrom, num, unitFrom.name, converted, unitTo.name)
+		precisionFrom, num, unitFrom.name(), converted, unitTo.name())
 	sendMessage(s, ch, send)
 }
 

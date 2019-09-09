@@ -7,40 +7,66 @@ import (
 	"github.com/martinlindhe/unit"
 )
 
-type unitType int
+type unitType interface {
+	name() string
+}
 
-const (
-	length unitType = iota
-	weight
-	speed
-	temperature
-)
+type unitCommon string
 
-// Unit is represents a unit
-type Unit struct {
-	utype unitType
-	name  string
+func (c unitCommon) name() string {
+	return string(c)
+}
+
+type lengthUnit struct {
+	unitCommon
+	length unit.Length
+	to     func(unit.Length) float64
+}
+
+func (from *lengthUnit) convert(f float64, to *lengthUnit) float64 {
+	return to.to(unit.Length(f) * from.length)
+}
+
+type weightUnit struct {
+	unitCommon
+	weight unit.Mass
+	to     func(unit.Mass) float64
+}
+
+func (from *weightUnit) convert(f float64, to *weightUnit) float64 {
+	return to.to(unit.Mass(f) * from.weight)
+}
+
+type tempertureUnit struct {
+	unitCommon
+	from func(float64) unit.Temperature
+	to   func(unit.Temperature) float64
+}
+
+func (from *tempertureUnit) convert(f float64, to *tempertureUnit) float64 {
+	return to.to(from.from(f))
 }
 
 var (
-	meter      = &Unit{length, "m"}
-	kilometer  = &Unit{length, "km"}
-	millimeter = &Unit{length, "mm"}
-	centimeter = &Unit{length, "cm"}
-	inch       = &Unit{length, "in"}
-	foot       = &Unit{length, "ft"}
-	mile       = &Unit{length, "miles"}
-	furlong    = &Unit{length, "furlongs"}
+	meter      = &lengthUnit{"m", unit.Meter, unit.Length.Meters}
+	kilometer  = &lengthUnit{"km", unit.Kilometer, unit.Length.Kilometers}
+	millimeter = &lengthUnit{"mm", unit.Millimeter, unit.Length.Millimeters}
+	centimeter = &lengthUnit{"cm", unit.Centimeter, unit.Length.Centimeters}
+	inch       = &lengthUnit{"in", unit.Inch, unit.Length.Inches}
+	foot       = &lengthUnit{"ft", unit.Foot, unit.Length.Feet}
+	mile       = &lengthUnit{"miles", unit.Mile, unit.Length.Miles}
+	furlong    = &lengthUnit{"furlongs", unit.Furlong, unit.Length.Furlongs}
 
-	gram     = &Unit{weight, "g"}
-	kilogram = &Unit{weight, "kg"}
-	pound    = &Unit{weight, "lbs"}
+	gram     = &weightUnit{"g", unit.Gram, unit.Mass.Grams}
+	kilogram = &weightUnit{"kg", unit.Kilogram, unit.Mass.Kilograms}
+	pound    = &weightUnit{"lbs", unit.AvoirdupoisPound, unit.Mass.AvoirdupoisPounds}
 
-	celcius    = &Unit{temperature, "°C"}
-	fahrenheit = &Unit{temperature, "°F"}
+	celcius    = &tempertureUnit{"°C", unit.FromCelsius, unit.Temperature.Celsius}
+	fahrenheit = &tempertureUnit{"°F", unit.FromFahrenheit, unit.Temperature.Fahrenheit}
+	kelvin     = &tempertureUnit{"K", unit.FromKelvin, unit.Temperature.Kelvin}
 )
 
-var unitMap = map[string]*Unit{
+var unitMap = map[string]unitType{
 	"m":           meter,
 	"meter":       meter,
 	"meters":      meter,
@@ -62,25 +88,29 @@ var unitMap = map[string]*Unit{
 	"mi":          mile,
 	"mile":        mile,
 	"miles":       mile,
-	"g":           gram,
-	"gram":        gram,
-	"grams":       gram,
-	"kg":          kilogram,
-	"kilogram":    kilogram,
-	"kilograms":   kilogram,
-	"lb":          pound,
-	"lbs":         pound,
-	"pound":       pound,
-	"pounds":      pound,
-	"c":           celcius,
-	"celcius":     celcius,
-	"f":           fahrenheit,
-	"fahrenheit":  fahrenheit,
 	"furlong":     furlong,
 	"furlongs":    furlong,
+
+	"g":         gram,
+	"gram":      gram,
+	"grams":     gram,
+	"kg":        kilogram,
+	"kilogram":  kilogram,
+	"kilograms": kilogram,
+	"lb":        pound,
+	"lbs":       pound,
+	"pound":     pound,
+	"pounds":    pound,
+
+	"c":          celcius,
+	"celcius":    celcius,
+	"f":          fahrenheit,
+	"fahrenheit": fahrenheit,
+	"kelvin":     kelvin,
+	"k":          kelvin,
 }
 
-func parseUnit(s string) (*Unit, error) {
+func parseUnit(s string) (unitType, error) {
 	u, ok := unitMap[strings.ToLower(s)]
 	if !ok {
 		return nil, fmt.Errorf("Invalid unit %s", s)
@@ -88,108 +118,20 @@ func parseUnit(s string) (*Unit, error) {
 	return u, nil
 }
 
-func convert(num float64, unitFrom, unitTo *Unit) (float64, error) {
-	if unitFrom.utype != unitTo.utype {
-		return 0, fmt.Errorf("Can't convert from %s to %s", unitFrom.name, unitTo.name)
+func convert(num float64, from, to unitType) (float64, error) {
+	switch from := from.(type) {
+	case *tempertureUnit:
+		if to, ok := to.(*tempertureUnit); ok {
+			return from.convert(num, to), nil
+		}
+	case *weightUnit:
+		if to, ok := to.(*weightUnit); ok {
+			return from.convert(num, to), nil
+		}
+	case *lengthUnit:
+		if to, ok := to.(*lengthUnit); ok {
+			return from.convert(num, to), nil
+		}
 	}
-
-	switch unitFrom.utype {
-	case length:
-		return convertLength(num, unitFrom, unitTo), nil
-	case weight:
-		return convertWeight(num, unitFrom, unitTo), nil
-	case temperature:
-		return convertTemperature(num, unitFrom, unitTo), nil
-	default:
-		return 0, nil
-	}
-}
-
-func convertLength(num float64, unitFrom, unitTo *Unit) float64 {
-	length := unit.Length(num)
-
-	var from unit.Length
-	switch unitFrom {
-	case meter:
-		from = length * unit.Meter
-	case kilometer:
-		from = length * unit.Kilometer
-	case millimeter:
-		from = length * unit.Millimeter
-	case centimeter:
-		from = length * unit.Centimeter
-	case foot:
-		from = length * unit.Foot
-	case inch:
-		from = length * unit.Inch
-	case mile:
-		from = length * unit.Mile
-	case furlong:
-		from = length * unit.Furlong
-	}
-
-	var to float64
-	switch unitTo {
-	case meter:
-		to = from.Meters()
-	case kilometer:
-		to = from.Kilometers()
-	case millimeter:
-		to = from.Millimeters()
-	case centimeter:
-		to = from.Centimeters()
-	case foot:
-		to = from.Feet()
-	case inch:
-		to = from.Inches()
-	case mile:
-		to = from.Miles()
-	case furlong:
-		to = from.Furlongs()
-	}
-	return to
-}
-
-func convertWeight(num float64, unitFrom, unitTo *Unit) float64 {
-	weight := unit.Mass(num)
-
-	var from unit.Mass
-	switch unitFrom {
-	case gram:
-		from = weight * unit.Gram
-	case kilogram:
-		from = weight * unit.Kilogram
-	case pound:
-		from = weight * unit.AvoirdupoisPound
-	}
-
-	var to float64
-	switch unitTo {
-	case gram:
-		to = from.Grams()
-	case kilogram:
-		to = from.Kilograms()
-	case pound:
-		to = from.AvoirdupoisPounds()
-	}
-	return to
-}
-
-func convertTemperature(num float64, unitFrom, unitTo *Unit) float64 {
-	var from unit.Temperature
-	switch unitFrom {
-	case celcius:
-		from = unit.FromCelsius(num)
-	case fahrenheit:
-		from = unit.FromFahrenheit(num)
-	}
-
-	var to float64
-	switch unitTo {
-	case celcius:
-		to = from.Celsius()
-	case fahrenheit:
-		to = from.Fahrenheit()
-	}
-	return to
+	return 0, fmt.Errorf("Can't convert from %s to %s", from.name(), to.name())
 }
