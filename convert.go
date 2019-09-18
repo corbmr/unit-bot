@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
-
-	"github.com/martinlindhe/unit"
 )
 
 type unitType interface {
@@ -16,55 +16,6 @@ type unitCommon string
 func (c unitCommon) name() string {
 	return string(c)
 }
-
-type lengthUnit struct {
-	unitCommon
-	length unit.Length
-	to     func(unit.Length) float64
-}
-
-func (from *lengthUnit) convert(f float64, to *lengthUnit) float64 {
-	return to.to(unit.Length(f) * from.length)
-}
-
-type weightUnit struct {
-	unitCommon
-	weight unit.Mass
-	to     func(unit.Mass) float64
-}
-
-func (from *weightUnit) convert(f float64, to *weightUnit) float64 {
-	return to.to(unit.Mass(f) * from.weight)
-}
-
-type tempertureUnit struct {
-	unitCommon
-	from func(float64) unit.Temperature
-	to   func(unit.Temperature) float64
-}
-
-func (from *tempertureUnit) convert(f float64, to *tempertureUnit) float64 {
-	return to.to(from.from(f))
-}
-
-var (
-	meter      = &lengthUnit{"m", unit.Meter, unit.Length.Meters}
-	kilometer  = &lengthUnit{"km", unit.Kilometer, unit.Length.Kilometers}
-	millimeter = &lengthUnit{"mm", unit.Millimeter, unit.Length.Millimeters}
-	centimeter = &lengthUnit{"cm", unit.Centimeter, unit.Length.Centimeters}
-	inch       = &lengthUnit{"in", unit.Inch, unit.Length.Inches}
-	foot       = &lengthUnit{"ft", unit.Foot, unit.Length.Feet}
-	mile       = &lengthUnit{"miles", unit.Mile, unit.Length.Miles}
-	furlong    = &lengthUnit{"furlongs", unit.Furlong, unit.Length.Furlongs}
-
-	gram     = &weightUnit{"g", unit.Gram, unit.Mass.Grams}
-	kilogram = &weightUnit{"kg", unit.Kilogram, unit.Mass.Kilograms}
-	pound    = &weightUnit{"lbs", unit.AvoirdupoisPound, unit.Mass.AvoirdupoisPounds}
-
-	celcius    = &tempertureUnit{"°C", unit.FromCelsius, unit.Temperature.Celsius}
-	fahrenheit = &tempertureUnit{"°F", unit.FromFahrenheit, unit.Temperature.Fahrenheit}
-	kelvin     = &tempertureUnit{"K", unit.FromKelvin, unit.Temperature.Kelvin}
-)
 
 var unitMap = map[string]unitType{
 	"m":           meter,
@@ -79,35 +30,118 @@ var unitMap = map[string]unitType{
 	"cm":          centimeter,
 	"centimeter":  centimeter,
 	"centimeters": centimeter,
+	"nm":          nanometer,
+	"nanometer":   nanometer,
+	"nanometers":  nanometer,
 	"in":          inch,
 	"inch":        inch,
 	"inches":      inch,
 	"ft":          foot,
 	"foot":        foot,
 	"feet":        foot,
+	"yd":          yard,
+	"yard":        yard,
+	"yards":       yard,
 	"mi":          mile,
 	"mile":        mile,
 	"miles":       mile,
 	"furlong":     furlong,
 	"furlongs":    furlong,
+	"ly":          lightyear,
+	"lightyear":   lightyear,
+	"lightyears":  lightyear,
+	"g":           gram,
+	"gram":        gram,
+	"grams":       gram,
+	"kg":          kilogram,
+	"kilogram":    kilogram,
+	"kilograms":   kilogram,
+	"lb":          pound,
+	"lbs":         pound,
+	"pound":       pound,
+	"pounds":      pound,
+	"c":           celsius,
+	"celsius":     celsius,
+	"celcius":     celsius,
+	"f":           fahrenheit,
+	"fahrenheit":  fahrenheit,
+	"kelvin":      kelvin,
+	"k":           kelvin,
+}
 
-	"g":         gram,
-	"gram":      gram,
-	"grams":     gram,
-	"kg":        kilogram,
-	"kilogram":  kilogram,
-	"kilograms": kilogram,
-	"lb":        pound,
-	"lbs":       pound,
-	"pound":     pound,
-	"pounds":    pound,
+const usage = `Usage: !conv [from][unit] to [unit]`
 
-	"c":          celcius,
-	"celcius":    celcius,
-	"f":          fahrenheit,
-	"fahrenheit": fahrenheit,
-	"kelvin":     kelvin,
-	"k":          kelvin,
+// TODO: write a real parser, this is gross
+var inputRegex = regexp.MustCompile(
+	`^(((?P<num>[+-]?\d+([.]\d*)?([eE][+-]?\d+)?)\s*(?P<from>\w+))|((?P<feet>[+-]?\d+)'\s*(?P<inches>\d+"?)?))\s+to\s+(?P<to>\w+)`)
+
+func generateResponse(inp string) (string, error) {
+	match := findNamed(inputRegex, inp)
+	if match == nil {
+		return "", fmt.Errorf(usage)
+	}
+
+	to, err := parseUnit(match["to"])
+	if err != nil {
+		return "", err
+	}
+
+	// Normal request branch
+	if match["num"] != "" && match["from"] != "" {
+		num, _ := strconv.ParseFloat(match["num"], 64)
+
+		from, err := parseUnit(match["from"])
+		if err != nil {
+			return "", err
+		}
+
+		conv, err := convert(num, from, to)
+		if err != nil {
+			return "", err
+		}
+
+		return fmt.Sprintf("%s %s = %.6g %s",
+			match["num"], from.name(), conv, to.name()), nil
+	}
+
+	// Branch using X'Y" syntax for ft+in
+	if feet := match["feet"]; feet != "" {
+
+		toLength, ok := to.(*lengthUnit)
+		if !ok {
+			return "", fmt.Errorf("Can't convert ft to %s", to.name())
+		}
+
+		var f, i float64
+		f, _ = strconv.ParseFloat(feet, 64)
+		if inches := match["inches"]; inches != "" {
+			i, _ = strconv.ParseFloat(inches, 64)
+		}
+
+		conv := convFeetInches(f, i, toLength)
+		return fmt.Sprintf(`%.0f'%.0f" = %.6g %s`,
+			f, i, conv, toLength.name()), nil
+	}
+
+	// This should never happen if the regex is correct
+	panic("Unexpected state")
+}
+
+func findNamed(r *regexp.Regexp, s string) map[string]string {
+	match := r.FindStringSubmatch(s)
+	if match == nil {
+		return nil
+	}
+
+	names := r.SubexpNames()
+	out := make(map[string]string)
+	for i, n := range names {
+		if n != "" {
+			out[n] = match[i]
+		}
+	}
+
+	return out
 }
 
 func parseUnit(s string) (unitType, error) {
@@ -124,8 +158,8 @@ func convert(num float64, from, to unitType) (float64, error) {
 		if to, ok := to.(*tempertureUnit); ok {
 			return from.convert(num, to), nil
 		}
-	case *weightUnit:
-		if to, ok := to.(*weightUnit); ok {
+	case *massUnit:
+		if to, ok := to.(*massUnit); ok {
 			return from.convert(num, to), nil
 		}
 	case *lengthUnit:

@@ -2,13 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"math"
 	"os"
 	"os/signal"
 	"regexp"
-	"strconv"
 	"syscall"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -17,12 +15,14 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-var conv = regexp.MustCompile(`(?i)^!conv ((?:[+-])?\d+(?:\.(\d+))?)\s*([[:alpha:]]+)\s+to\s+([[:alpha:]]+)`)
-
 func main() {
-	token, err := getBotToken()
-	if err != nil {
-		log.Fatalln("error getting bot token,", err)
+	var err error
+	token, ok := os.LookupEnv("UNITTEST")
+	if !ok {
+		token, err = getBotToken()
+		if err != nil {
+			log.Fatalln("error getting bot token,", err)
+		}
 	}
 
 	dg, err := discordgo.New("Bot " + token)
@@ -50,9 +50,7 @@ func main() {
 }
 
 func getBotToken() (string, error) {
-	const (
-		secretName = "UnitBot"
-	)
+	const secretName = "UnitBot"
 
 	//Create a Secrets Manager client
 	sess, err := session.NewSession()
@@ -74,59 +72,39 @@ func getBotToken() (string, error) {
 
 	err = json.Unmarshal([]byte(*result.SecretString), &secret)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	return secret.UnitBotToken, nil
 }
 
+var prefix = regexp.MustCompile(`(?i)^!conv(?:ert)?\s*`)
+
 func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-	match := conv.FindStringSubmatch(m.Content)
-	if match == nil {
+	// Just in case
+	defer func() {
+		if err := recover(); err != nil {
+			log.Println("Function panicked:", err)
+		}
+	}()
+
+	loc := prefix.FindStringIndex(m.Content)
+	if loc == nil {
 		return
 	}
 
-	ch := m.ChannelID
-
-	precisionFrom := len(match[2])
-	// ignore error because the regex ensures it will always parse
-	num, _ := strconv.ParseFloat(match[1], 64)
-
-	unitFrom, err := parseUnit(match[3])
+	out, err := generateResponse(m.Content[loc[1]:])
 	if err != nil {
-		sendMessage(s, ch, err.Error())
-		return
+		out = err.Error()
 	}
 
-	unitTo, err := parseUnit(match[4])
-	if err != nil {
-		sendMessage(s, ch, err.Error())
-		return
-	}
-
-	converted, err := convert(num, unitFrom, unitTo)
-	if err != nil {
-		sendMessage(s, ch, err.Error())
-		return
-	}
-
-	// precisionTo := calculatePrecision(precisionFrom, converted)
-
-	// matchedMessage := fmt.Sprintf("Matched: %#v", match)
-	// sendMessage(s, ch, matchedMessage)
-
-	send := fmt.Sprintf("%.*f %s = %.6g %s",
-		precisionFrom, num, unitFrom.name(), converted, unitTo.name())
-	sendMessage(s, ch, send)
-}
-
-func sendMessage(s *discordgo.Session, channelID, message string) {
-	_, err := s.ChannelMessageSend(channelID, message)
+	_, err = s.ChannelMessageSend(m.ChannelID, out)
 	if err != nil {
 		log.Println("Unable to send message", err)
 	}
 }
 
+// TODO: Fix this and change out any uses of %g in formats
 func calculatePrecision(givenPrecision int, num float64) int {
 
 	num = math.Abs(num)
