@@ -1,6 +1,11 @@
 package main
 
-import "github.com/martinlindhe/unit"
+import (
+	"fmt"
+	"math"
+
+	"github.com/martinlindhe/unit"
+)
 
 type lengthUnit struct {
 	unitCommon
@@ -8,8 +13,8 @@ type lengthUnit struct {
 	to     func(unit.Length) float64
 }
 
-func (from *lengthUnit) convert(f float64, to *lengthUnit) float64 {
-	return to.to(unit.Length(f) * from.length)
+func (lu *lengthUnit) fromFloat(f float64) unitVal {
+	return lengthVal{unit.Length(f) * lu.length, lu}
 }
 
 var (
@@ -26,7 +31,58 @@ var (
 	lightyear  = &lengthUnit{"ly", unit.LightYear, unit.Length.LightYears}
 )
 
-func convFeetInches(f, i float64, to *lengthUnit) float64 {
-	from := unit.Length(f)*unit.Foot + unit.Length(i)*unit.Inch
-	return to.to(from)
+type lengthVal struct {
+	v unit.Length
+	u *lengthUnit
+}
+
+func (lv lengthVal) String() string {
+	return simpleUnitString(lv.u.to(lv.v), lv.u)
+}
+
+func (lv lengthVal) convert(to unitType) (unitVal, error) {
+	switch to := to.(type) {
+	case *lengthUnit:
+		lv.u = to
+		return lv, nil
+	case footInchUnit:
+		feet, fraction := math.Modf(lv.v.Feet())
+		inches := (unit.Length(fraction) * unit.Foot).Inches()
+		return footInchVal{feet, inches}, nil
+	default:
+		return nil, convErr(lv.u, to)
+
+	}
+}
+
+type footInchUnit struct{}
+
+func (footInchUnit) name() string {
+	return "feet+inches"
+}
+
+var footInch = footInchUnit{}
+
+type footInchVal struct {
+	feet, inches float64
+}
+
+func (val footInchVal) String() string {
+	if val.inches == 0 {
+		return simpleUnitString(val.feet, foot)
+	}
+	return fmt.Sprintf(`%.f' %.f"`, val.feet, val.inches)
+}
+
+func (val footInchVal) convert(to unitType) (unitVal, error) {
+	switch to := to.(type) {
+	case footInchUnit:
+		return val, nil
+	case *lengthUnit:
+		feet := unit.Length(val.feet) * unit.Foot
+		inches := unit.Length(val.inches) * unit.Inch
+		return lengthVal{feet + inches, to}, nil
+	default:
+		return nil, convErr(footInch, to)
+	}
 }

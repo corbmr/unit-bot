@@ -8,8 +8,8 @@ type tempertureUnit struct {
 	to   func(unit.Temperature) float64
 }
 
-func (from *tempertureUnit) convert(f float64, to *tempertureUnit) float64 {
-	return to.to(from.from(f))
+func (tu *tempertureUnit) fromFloat(f float64) unitVal {
+	return temperatureVal{tu.from(f), tu}
 }
 
 var (
@@ -17,3 +17,20 @@ var (
 	fahrenheit = &tempertureUnit{"°F", unit.FromFahrenheit, unit.Temperature.Fahrenheit}
 	kelvin     = &tempertureUnit{"K", unit.FromKelvin, unit.Temperature.Kelvin}
 )
+
+type temperatureVal struct {
+	v unit.Temperature
+	u *tempertureUnit
+}
+
+func (tv temperatureVal) String() string {
+	return simpleUnitString(tv.u.to(tv.v), tv.u)
+}
+
+func (tv temperatureVal) convert(to unitType) (unitVal, error) {
+	if to, ok := to.(*tempertureUnit); ok {
+		tv.u = to
+		return tv, nil
+	}
+	return nil, convErr(tv.u, to)
+}
