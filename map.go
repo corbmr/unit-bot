@@ -53,4 +53,12 @@ var unitMap = map[string]unitType{
 	"fahrenheit":  fahrenheit,
 	"kelvin":      kelvin,
 	"k":           kelvin,
+	"mph":         milesPerHour,
+	"km/h":        kilometersPerHour,
+	"l":           liter,
+	"liter":       liter,
+	"liters":      liter,
+	"cl":          centiliter,
+	"centiliter":  centiliter,
+	"centiliters": centiliter,
 }

@@ -15,17 +15,18 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func main() {
-	var err error
-	token, ok := os.LookupEnv("UNITTEST")
-	if !ok {
-		token, err = getBotToken()
-		if err != nil {
-			log.Fatalln("error getting bot token,", err)
-		}
-	}
+var secret secrets
 
-	dg, err := discordgo.New("Bot " + token)
+func init() {
+	var err error
+	secret, err = getSecret()
+	if err != nil {
+		log.Fatalln("unable to get secrets:", err)
+	}
+}
+
+func main() {
+	dg, err := discordgo.New("Bot " + secret.UnitBotToken)
 	if err != nil {
 		log.Fatalln("error creating discord session,", err)
 	}
@@ -49,13 +50,41 @@ func main() {
 	log.Println("Unit Bot has stopped running")
 }
 
-func getBotToken() (string, error) {
+type secrets struct {
+	UnitBotToken   string
+	CurrencyAPIKey string
+}
+
+func getSecret() (secrets, error) {
+
+	token, tokenOk := os.LookupEnv("UNITTEST")
+	apiKey, apiOk := os.LookupEnv("CURRENCY_KEY")
+
+	if !tokenOk || !apiOk {
+		secret, err := getBotSecret()
+		if err != nil {
+			return secrets{}, err
+		}
+
+		if !tokenOk {
+			token = secret.UnitBotToken
+		}
+
+		if !apiOk {
+			apiKey = secret.CurrencyAPIKey
+		}
+	}
+
+	return secrets{token, apiKey}, nil
+}
+
+func getBotSecret() (secrets, error) {
 	const secretName = "UnitBot"
 
 	//Create a Secrets Manager client
 	sess, err := session.NewSession()
 	if err != nil {
-		return "", err
+		return secrets{}, err
 	}
 
 	svc := secretsmanager.New(sess)
@@ -65,17 +94,13 @@ func getBotToken() (string, error) {
 
 	result, err := svc.GetSecretValue(input)
 	if err != nil {
-		return "", err
+		return secrets{}, err
 	}
 
-	var secret struct{ UnitBotToken string }
+	var secret secrets
 
 	err = json.Unmarshal([]byte(*result.SecretString), &secret)
-	if err != nil {
-		return "", err
-	}
-
-	return secret.UnitBotToken, nil
+	return secret, err
 }
 
 var prefix = regexp.MustCompile(`(?i)^!conv(?:ert)?\s*`)

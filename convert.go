@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"regexp"
 	"strconv"
 	"strings"
@@ -12,7 +11,7 @@ const usage = `Usage: !conv [from][unit] to [unit]`
 
 // TODO: write a real parser, this is gross
 var inputRegex = regexp.MustCompile(
-	`^(((?P<num>[+-]?\d+([.]\d*)?([eE][+-]?\d+)?)\s*(?P<from>[A-Za-z+]+))|((?P<feet>[+-]?\d+)'\s*((?P<inches>\d+)"?)?))\s+to\s+(?P<to>[A-Za-z+]+)`)
+	`^(((?P<num>[+-]?\d+([.]\d*)?([eE][+-]?\d+)?)\s*(?P<from>[A-Za-z+/]+))|((?P<feet>[+-]?\d+)'\s*((?P<inches>\d+)"?)?))\s+to\s+(?P<to>[A-Za-z+/]+)`)
 
 func generateResponse(inp string) (string, error) {
 	match := findNamed(inputRegex, inp)
@@ -29,7 +28,6 @@ func generateResponse(inp string) (string, error) {
 
 	switch {
 	case match["num"] != "" && match["from"] != "":
-		log.Printf("num: [%s], from: [%s]", match["num"], match["from"])
 		fromUnit, err := parseUnit(match["from"])
 		if err != nil {
 			return "", err
