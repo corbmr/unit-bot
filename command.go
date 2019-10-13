@@ -2,17 +2,23 @@ package main
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/corbmr/unit-bot/internal/convert"
 	p "github.com/corbmr/unit-bot/internal/parser"
+	"github.com/corbmr/unit-bot/internal/parser/mapper"
 )
 
 type command interface {
 	Do() (string, error)
 }
 
+var errUsage = fmt.Errorf(`Usage: !conv [from][unit] to [unit]`)
+
 func (c convertCommand) Do() (string, error) {
+	if !c.ok {
+		return "", errUsage
+	}
+
 	var from convert.UnitVal
 	switch uv := c.from.(type) {
 	case unparsedUnitVal:
@@ -52,32 +58,28 @@ type unparsedUnitVal struct {
 }
 
 type convertCommand struct {
+	ok   bool
 	from interface{}
 	to   unparsedUnit
 }
 
 var (
-	intToken  = p.Token(`\d+`).Map(mapFloat)
 	unitToken = p.Token(`[A-Za-z+/]+`).Map(mapUnit)
-	float     = p.Token(`[+-]?\d+([.]\d*)?([eE][+-]?\d+)?`).Map(mapFloat)
 
-	inches     = p.All(intToken, p.Atom(`"`).Opt()).Map(mapFirst)
-	feetInches = p.All(intToken, p.Atom(`'`), inches.Opt()).Map(mapFeetInches)
+	inches     = p.All(p.Int, p.Atom(`"`).Opt()).Map(mapper.Index(0))
+	feetInches = p.All(p.Int, p.Atom(`'`), inches.Opt()).Map(mapFeetInches)
 
-	simpleUnitVal = p.All(float, unitToken).Map(mapSimpleUnit)
+	simpleUnitVal = p.All(p.Float, unitToken).Map(mapSimpleUnit)
 
-	from = p.Any(simpleUnitVal, feetInches)
+	fromExpr = p.Any(simpleUnitVal, feetInches)
 
-	convertExpr = p.All(p.AtomE(`!conv`), from, p.Atom(`to`), unitToken).Map(mapConvertExpr)
+	// Split up like this to give error reports if the expression is incorrect
+	convertExpr        = p.All(fromExpr, p.Atom(`to`), unitToken).Opt().Map(mapConvertCommand)
+	convertCommandExpr = p.All(p.AtomE(`!conv`), convertExpr).Map(mapper.Index(1))
 
-	// Primary parser
-	commandExpr = p.Any(convertExpr)
+	// Primary command parser
+	commandExpr = p.Any(convertCommandExpr)
 )
-
-func mapFloat(v interface{}) interface{} {
-	f, _ := strconv.ParseFloat(v.(string), 64)
-	return f
-}
 
 func mapUnit(v interface{}) interface{} {
 	return unparsedUnit(v.(string))
@@ -88,21 +90,19 @@ func mapSimpleUnit(v interface{}) interface{} {
 	return unparsedUnitVal{vs[0].(float64), vs[1].(unparsedUnit)}
 }
 
-func mapFirst(v interface{}) interface{} {
-	return v.([]interface{})[0]
-}
-
 func mapFeetInches(v interface{}) interface{} {
 	vs := v.([]interface{})
-	feet := vs[0].(float64)
-	inches := 0.0
-	if f, ok := vs[2].(float64); ok {
+	feet := vs[0].(int)
+	inches := 0
+	if f, ok := vs[2].(int); ok {
 		inches = f
 	}
-	return convert.FootInchVal{Feet: feet, Inches: inches}
+	return convert.FootInchVal{Feet: float64(feet), Inches: float64(inches)}
 }
 
-func mapConvertExpr(v interface{}) interface{} {
-	vs := v.([]interface{})
-	return convertCommand{vs[1], vs[3].(unparsedUnit)}
+func mapConvertCommand(v interface{}) interface{} {
+	if c, ok := v.([]interface{}); ok {
+		return convertCommand{true, c[0], c[2].(unparsedUnit)}
+	}
+	return convertCommand{}
 }
