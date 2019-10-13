@@ -6,26 +6,22 @@ import (
 	"math"
 	"os"
 	"os/signal"
-	"regexp"
 	"syscall"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/bwmarrin/discordgo"
+	"github.com/corbmr/unit-bot/internal/convert"
 )
 
-var secret secrets
-
-func init() {
-	var err error
-	secret, err = getSecret()
+func main() {
+	secret, err := getSecret()
 	if err != nil {
 		log.Fatalln("unable to get secrets:", err)
 	}
-}
+	convert.InitCurrency(secret.CurrencyAPIKey)
 
-func main() {
 	dg, err := discordgo.New("Bot " + secret.UnitBotToken)
 	if err != nil {
 		log.Fatalln("error creating discord session,", err)
@@ -103,8 +99,6 @@ func getBotSecret() (secrets, error) {
 	return secret, err
 }
 
-var prefix = regexp.MustCompile(`(?i)^!conv(?:ert)?\s*`)
-
 func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Just in case
 	defer func() {
@@ -113,17 +107,17 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 	}()
 
-	loc := prefix.FindStringIndex(m.Content)
-	if loc == nil {
+	res := commandExpr([]byte(m.Content))
+	if !res.Ok {
 		return
 	}
 
-	out, err := generateResponse(m.Content[loc[1]:])
+	resp, err := res.V.(command).Do()
 	if err != nil {
-		out = err.Error()
+		resp = err.Error()
 	}
 
-	_, err = s.ChannelMessageSend(m.ChannelID, out)
+	_, err = s.ChannelMessageSend(m.ChannelID, resp)
 	if err != nil {
 		log.Println("Unable to send message", err)
 	}

@@ -1,4 +1,4 @@
-package main
+package convert
 
 import (
 	"encoding/json"
@@ -12,15 +12,22 @@ import (
 const endpointCurrencies = `https://free.currconv.com/api/v7/currencies`
 const endpointConvert = `https://free.currconv.com/api/v7/convert`
 
-func init() {
+var apiKey string
+
+// InitCurrency registers available currencies
+func InitCurrency(key string) {
+	apiKey = key
+	loadCurrencies()
+}
+
+func loadCurrencies() {
 	log.Println("Loading currencies..")
 
 	currencyURL, _ := url.Parse(endpointCurrencies)
 	q := currencyURL.Query()
-	q.Set("apiKey", secret.CurrencyAPIKey)
+	q.Set("apiKey", apiKey)
 	currencyURL.RawQuery = q.Encode()
 
-	log.Printf("GET %s", currencyURL)
 	resp, err := http.Get(currencyURL.String())
 	if err != nil {
 		log.Println("Currencies not available:", err)
@@ -49,51 +56,55 @@ func init() {
 		// like we are with the other units
 		if _, ok := unitMap[key]; !ok {
 			log.Println(curr.ID, curr.CurrencyName)
-			curr := currencyUnit{curr.ID}
+			curr := CurrencyUnit{curr.ID}
 			unitMap[key] = &curr
 		}
 	}
 
 	log.Println("Currencies loaded")
-
 }
 
-type currencyUnit struct {
+// CurrencyUnit is a unit of currency
+type CurrencyUnit struct {
 	id string
 }
 
-func (cu *currencyUnit) name() string {
+// Name implements UnitType for Currency
+func (cu *CurrencyUnit) Name() string {
 	return cu.id
 }
 
-func (cu *currencyUnit) fromFloat(f float64) unitVal {
-	return currencyVal{f, cu}
+// FromFloat implements SimpleUnit
+func (cu *CurrencyUnit) FromFloat(f float64) UnitVal {
+	return CurrencyVal{f, cu}
 }
 
-type currencyVal struct {
-	v float64
-	u *currencyUnit
+// CurrencyVal is a currency value with unit
+type CurrencyVal struct {
+	V float64
+	U *CurrencyUnit
 }
 
-func (cv currencyVal) String() string {
-	return fmt.Sprintf("%.2f %s", cv.v, cv.u.name())
+func (cv CurrencyVal) String() string {
+	return fmt.Sprintf("%.2f %s", cv.V, cv.U.Name())
 }
 
-func (cv currencyVal) convert(to unitType) (unitVal, error) {
-	if to, ok := to.(*currencyUnit); ok {
-		curr, err := convertCurrency(cv.u, to, cv.v)
+// Convert implements UnitVal conversion
+func (cv CurrencyVal) Convert(to UnitType) (UnitVal, error) {
+	if to, ok := to.(*CurrencyUnit); ok {
+		curr, err := convertCurrency(cv.U, to, cv.V)
 		if err != nil {
 			return nil, fmt.Errorf("Currency conversion not available right now")
 		}
-		return currencyVal{curr, to}, nil
+		return CurrencyVal{curr, to}, nil
 	}
-	return nil, convErr(cv.u, to)
+	return nil, convErr(cv.U, to)
 }
 
-func convertCurrency(from, to *currencyUnit, val float64) (float64, error) {
+func convertCurrency(from, to *CurrencyUnit, val float64) (float64, error) {
 	convertURL, _ := url.Parse(endpointConvert)
 	q := convertURL.Query()
-	q.Set("apiKey", secret.CurrencyAPIKey)
+	q.Set("apiKey", apiKey)
 	q.Set("compact", "ultra")
 
 	op := fmt.Sprintf("%s_%s", from.id, to.id)
