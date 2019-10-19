@@ -65,7 +65,7 @@ type convertCommand struct {
 }
 
 var (
-	unitToken = p.Token(`\S+`)
+	unitToken = p.Token(`[A-Za-z+/$€¥£]+`)
 
 	inches     = p.All(p.Int, p.Atom(`"`).Opt()).Map(p.Index(0))
 	feetInches = p.All(p.Int, p.Atom(`'`), inches.Or(0)).Map(mapFeetInches)

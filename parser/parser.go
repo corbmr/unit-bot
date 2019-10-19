@@ -191,10 +191,10 @@ func (p Parser) Map(f Mapper) Parser {
 }
 
 // Float is a float parser
-var Float = Token(`[+-]?\d+([.]\d*)?([eE][+-]?\d+)?`).Map(MapFloat)
+var Float = Token(`[+-]?\d+([.,]\d*)?([eE][+-]?\d+)?`).Map(mapFloat)
 
 // Int is an integer parser
-var Int = Token(`[+-]?\d+`).Map(MapInt)
+var Int = Token(`[+-]?\d+`).Map(mapInt)
 
 // Mapper is a function for mapping parser results
 type Mapper = func(interface{}) interface{}
@@ -206,17 +206,15 @@ func Index(i int) Mapper {
 	}
 }
 
-// MapFloat maps the string result to a float
-func MapFloat(v interface{}) interface{} {
-	f, err := strconv.ParseFloat(v.(string), 64)
+func mapFloat(v interface{}) interface{} {
+	f, err := strconv.ParseFloat(strings.ReplaceAll(v.(string), ",", "."), 64)
 	if err != nil {
 		panic(err)
 	}
 	return f
 }
 
-// MapInt maps string result to an int
-func MapInt(v interface{}) interface{} {
+func mapInt(v interface{}) interface{} {
 	i, err := strconv.Atoi(v.(string))
 	if err != nil {
 		panic(err)
