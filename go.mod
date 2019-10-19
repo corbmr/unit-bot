@@ -1,4 +1,4 @@
-module github.com/corbmr/unit-bot
+module unit-bot
 
 go 1.12
 

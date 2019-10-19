@@ -37,5 +37,5 @@ func (tv TemperatureVal) Convert(to UnitType) (UnitVal, error) {
 		tv.U = to
 		return tv, nil
 	}
-	return nil, convErr(tv.U, to)
+	return nil, ErrorConversion{tv.U, to}
 }

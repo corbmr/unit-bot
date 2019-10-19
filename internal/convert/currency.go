@@ -14,6 +14,17 @@ const endpointConvert = `https://free.currconv.com/api/v7/convert`
 
 var apiKey string
 
+//US$, CA$, AUS$, €, Yen, GBP
+
+var extraAliases = map[string][]string{
+	"USD": {"$", "US$", "dollar", "dollars"},
+	"EUR": {"€", "euro", "euros"},
+	"JPY": {"¥", "yen"},
+	"GBP": {"£"},
+	"CAD": {"CA$"},
+	"AUS": {"AUS$"},
+}
+
 // InitCurrency registers available currencies
 func InitCurrency(key string) {
 	apiKey = key
@@ -44,7 +55,7 @@ func loadCurrencies() {
 	decoder := json.NewDecoder(resp.Body)
 	err = decoder.Decode(&response)
 	if err != nil {
-		log.Println("error decoding currencies response:", err)
+		log.Println("Error decoding currencies response:", err)
 		return
 	}
 
@@ -56,9 +67,13 @@ func loadCurrencies() {
 		// like we are with the other units
 		if _, ok := unitMap[key]; !ok {
 			log.Println(curr.ID, curr.CurrencyName)
-			curr := CurrencyUnit{curr.ID}
-			unitMap[key] = &curr
+			curr := &CurrencyUnit{curr.ID}
+			unitMap[key] = curr
+			if aliases, ok := extraAliases[curr.id]; ok {
+				RegisterAliases(curr, aliases)
+			}
 		}
+
 	}
 
 	log.Println("Currencies loaded")
@@ -89,16 +104,19 @@ func (cv CurrencyVal) String() string {
 	return fmt.Sprintf("%.2f %s", cv.V, cv.U.Name())
 }
 
+// ErrorCurrencyService occurs when there is an error while calling the currency service
+var ErrorCurrencyService = fmt.Errorf("Currency conversion not available right now")
+
 // Convert implements UnitVal conversion
 func (cv CurrencyVal) Convert(to UnitType) (UnitVal, error) {
 	if to, ok := to.(*CurrencyUnit); ok {
 		curr, err := convertCurrency(cv.U, to, cv.V)
 		if err != nil {
-			return nil, fmt.Errorf("Currency conversion not available right now")
+			return nil, ErrorCurrencyService
 		}
 		return CurrencyVal{curr, to}, nil
 	}
-	return nil, convErr(cv.U, to)
+	return nil, ErrorConversion{cv.U, to}
 }
 
 func convertCurrency(from, to *CurrencyUnit, val float64) (float64, error) {

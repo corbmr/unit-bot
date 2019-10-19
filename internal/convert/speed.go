@@ -36,5 +36,5 @@ func (sv SpeedVal) Convert(to UnitType) (UnitVal, error) {
 		sv.U = to
 		return sv, nil
 	}
-	return nil, convErr(sv.U, to)
+	return nil, ErrorConversion{sv.U, to}
 }

@@ -36,5 +36,5 @@ func (vv VolumeVal) Convert(to UnitType) (UnitVal, error) {
 		vv.U = to
 		return vv, nil
 	}
-	return nil, convErr(vv.U, to)
+	return nil, ErrorConversion{vv.U, to}
 }

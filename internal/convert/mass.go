@@ -37,5 +37,5 @@ func (mv MassVal) Convert(to UnitType) (UnitVal, error) {
 		mv.U = to
 		return mv, nil
 	}
-	return nil, convErr(mv.U, to)
+	return nil, ErrorConversion{mv.U, to}
 }

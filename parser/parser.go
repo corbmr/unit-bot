@@ -3,8 +3,9 @@ package parser
 import (
 	"bytes"
 	"regexp"
-
-	"github.com/corbmr/unit-bot/internal/parser/mapper"
+	"strconv"
+	"strings"
+	"unicode/utf8"
 )
 
 var wsPattern = regexp.MustCompile(`^\s*`)
@@ -138,6 +139,18 @@ func AtomE(val string) Parser {
 	}
 }
 
+// RuneIn matches a single rune of the ones in val
+func RuneIn(val string) Parser {
+	return func(s []byte) Res {
+		w := ws(s)
+		r, n := utf8.DecodeRune(s[w:])
+		if strings.ContainsRune(val, r) {
+			return Res{r, w + n, true}
+		}
+		return Res{}
+	}
+}
+
 // None is type representing missing from Opt
 type None struct{}
 
@@ -149,22 +162,64 @@ func (p Parser) Opt() Parser {
 		if !res.Ok {
 			return Res{None{}, 0, true}
 		}
-		return Res{res.V, res.N, true}
+		return res
+	}
+}
+
+// Or is like Opt but returns the value given if the parser is unsuccessful
+func (p Parser) Or(or interface{}) Parser {
+	return func(s []byte) Res {
+		res := p(s)
+		if !res.Ok {
+			return Res{or, 0, true}
+		}
+		return res
 	}
 }
 
 // Map maps the result of a parser to a different result
-func (p Parser) Map(f mapper.Mapper) Parser {
+// If the Mapper returns nil, the parser returns as invalid
+func (p Parser) Map(f Mapper) Parser {
 	return func(s []byte) Res {
 		if res := p(s); res.Ok {
-			return Res{f(res.V), res.N, true}
+			if v := f(res.V); v != nil {
+				return Res{v, res.N, true}
+			}
 		}
 		return Res{}
 	}
 }
 
 // Float is a float parser
-var Float = Token(`[+-]?\d+([.]\d*)?([eE][+-]?\d+)?`).Map(mapper.Float)
+var Float = Token(`[+-]?\d+([.]\d*)?([eE][+-]?\d+)?`).Map(MapFloat)
 
 // Int is an integer parser
-var Int = Token(`[+-]?\d+`).Map(mapper.Int)
+var Int = Token(`[+-]?\d+`).Map(MapInt)
+
+// Mapper is a function for mapping parser results
+type Mapper = func(interface{}) interface{}
+
+// Index creates a mapper that maps the result to an index in a slice
+func Index(i int) Mapper {
+	return func(v interface{}) interface{} {
+		return v.([]interface{})[i]
+	}
+}
+
+// MapFloat maps the string result to a float
+func MapFloat(v interface{}) interface{} {
+	f, err := strconv.ParseFloat(v.(string), 64)
+	if err != nil {
+		panic(err)
+	}
+	return f
+}
+
+// MapInt maps string result to an int
+func MapInt(v interface{}) interface{} {
+	i, err := strconv.Atoi(v.(string))
+	if err != nil {
+		panic(err)
+	}
+	return i
+}

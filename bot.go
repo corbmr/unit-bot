@@ -8,11 +8,12 @@ import (
 	"os/signal"
 	"syscall"
 
+	"unit-bot/internal/convert"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/bwmarrin/discordgo"
-	"github.com/corbmr/unit-bot/internal/convert"
 )
 
 func main() {

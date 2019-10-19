@@ -57,12 +57,17 @@ func (lv LengthVal) Convert(to UnitType) (UnitVal, error) {
 		inches := (unit.Length(fraction) * unit.Foot).Inches()
 		return FootInchVal{feet, inches}, nil
 	default:
-		return nil, convErr(lv.U, to)
+		return nil, ErrorConversion{lv.U, to}
 	}
 }
 
 // FootInchUnit is a unit of both feet + inches
 type FootInchUnit struct{ unitCommon }
+
+// FromFloat implements UnitType
+func (FootInchUnit) FromFloat(f float64) UnitVal {
+	return FootInchVal{Feet: f, Inches: 0}
+}
 
 // FootInchVal is a UnitVal of both feet + inches
 type FootInchVal struct {
@@ -86,6 +91,6 @@ func (val FootInchVal) Convert(to UnitType) (UnitVal, error) {
 		inches := unit.Length(val.Inches) * unit.Inch
 		return LengthVal{feet + inches, to}, nil
 	default:
-		return nil, convErr(FootInch, to)
+		return nil, ErrorConversion{FootInch, to}
 	}
 }
