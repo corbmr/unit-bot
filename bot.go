@@ -78,6 +78,10 @@ func getSecret() (secrets, error) {
 func getBotSecret() (secrets, error) {
 	const secretName = "UnitBot"
 
+	if s, ok := os.LookupEnv("UNIT_BOT_SECRET"); ok {
+		return parseSecret(s)
+	}
+
 	//Create a Secrets Manager client
 	sess, err := session.NewSession()
 	if err != nil {
@@ -94,9 +98,12 @@ func getBotSecret() (secrets, error) {
 		return secrets{}, err
 	}
 
-	var secret secrets
+	return parseSecret(*result.SecretString)
+}
 
-	err = json.Unmarshal([]byte(*result.SecretString), &secret)
+func parseSecret(s string) (secrets, error) {
+	var secret secrets
+	err := json.Unmarshal([]byte(s), &secret)
 	return secret, err
 }
 

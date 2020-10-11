@@ -16,8 +16,17 @@ func (vu *VolumeUnit) FromFloat(f float64) UnitVal {
 
 // Volumetric units
 var (
+	Milliliter = &VolumeUnit{"ml", unit.Milliliter, unit.Volume.Milliliters}
 	Centiliter = &VolumeUnit{"cl", unit.Centiliter, unit.Volume.Centiliters}
 	Liter      = &VolumeUnit{"l", unit.Liter, unit.Volume.Liters}
+
+	Gallon     = &VolumeUnit{"gal", unit.USLiquidGallon, unit.Volume.USLiquidGallons}
+	Quart      = &VolumeUnit{"quart", unit.USLiquidGallon, unit.Volume.USLiquidGallons}
+	Pint       = &VolumeUnit{"pint", unit.USLiquidGallon, unit.Volume.USLiquidGallons}
+	Cup        = &VolumeUnit{"cup", unit.USLiquidGallon, unit.Volume.USLiquidGallons}
+	Ounce      = &VolumeUnit{"oz", unit.USLiquidGallon, unit.Volume.USLiquidGallons}
+	TableSpoon = &VolumeUnit{"tbsp", unit.USLiquidGallon, unit.Volume.USLiquidGallons}
+	TeaSpoon   = &VolumeUnit{"tsp", unit.USLiquidGallon, unit.Volume.USLiquidGallons}
 )
 
 // VolumeVal is a volumetric value with unit

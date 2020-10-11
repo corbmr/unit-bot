@@ -179,7 +179,7 @@ func (p Parser) Or(or interface{}) Parser {
 
 // Map maps the result of a parser to a different result
 // If the Mapper returns nil, the parser returns as invalid
-func (p Parser) Map(f Mapper) Parser {
+func (p Parser) Map(f MapperFunc) Parser {
 	return func(s []byte) Res {
 		if res := p(s); res.Ok {
 			if v := f(res.V); v != nil {
@@ -196,11 +196,11 @@ var Float = Token(`[+-]?\d+([.,]\d*)?([eE][+-]?\d+)?`).Map(mapFloat)
 // Int is an integer parser
 var Int = Token(`[+-]?\d+`).Map(mapInt)
 
-// Mapper is a function for mapping parser results
-type Mapper = func(interface{}) interface{}
+// MapperFunc is a function for mapping parser results
+type MapperFunc = func(interface{}) interface{}
 
 // Index creates a mapper that maps the result to an index in a slice
-func Index(i int) Mapper {
+func Index(i int) MapperFunc {
 	return func(v interface{}) interface{} {
 		return v.([]interface{})[i]
 	}
