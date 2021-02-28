@@ -3,7 +3,7 @@ RUN mkdir /bot
 COPY  . /bot
 WORKDIR /bot
 RUN go mod download
-RUN CGO_ENABLED=0 go build -o unit-bot
+RUN CGO_ENABLED=0 go build -o unit-bot ./cmd/bot
 
 FROM alpine
 WORKDIR /unit-bot

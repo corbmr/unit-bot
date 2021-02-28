@@ -15,9 +15,15 @@ func RegisterAliases(unit UnitType, aliases []string) {
 	}
 }
 
-// ParseUnit parses a UnitType
+// ParseUnit parses a UnitType.
+// Lazily loads currency units
 func ParseUnit(s string) (UnitType, bool) {
-	u, ok := unitMap[strings.ToLower(s)]
+	s = strings.ToLower(s)
+	u, ok := unitMap[s]
+	if !ok {
+		loadCurrencies()
+		u, ok = unitMap[s]
+	}
 	return u, ok
 }
 

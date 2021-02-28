@@ -14,20 +14,8 @@ func ws(s []byte) int {
 	return len(wsPattern.Find(s))
 }
 
-// Res is the result of parsing
-// The zero value for Res signals that the parsing was unsucessful
-type Res struct {
-	// Value return from the parser
-	V interface{}
-	// Number of bytes consumed
-	N int
-	// Whether the parsing was successful
-	// If Ok is false, V should be nil and N should be 0
-	Ok bool
-}
-
-// Parser scans bytes and gives back a result
-type Parser func([]byte) Res
+// Parser scans bytes and returns result a result, number of bytes consumed, and whether the parse was successful
+type Parser func([]byte) (interface{}, int, bool)
 
 // Token scans for a pattern, skipping leading whitespace if necessary
 func Token(pattern string) Parser {
@@ -35,14 +23,14 @@ func Token(pattern string) Parser {
 		pattern = "^" + pattern
 	}
 	regex := regexp.MustCompile(pattern)
-	return func(s []byte) Res {
+	return func(s []byte) (interface{}, int, bool) {
 		n := ws(s)
 		match := regex.Find(s[n:])
 		if match == nil {
-			return Res{}
+			return nil, 0, false
 		}
 
-		return Res{string(match), n + len(match), true}
+		return string(match), n + len(match), true
 	}
 }
 
@@ -52,13 +40,13 @@ func TokenE(pattern string) Parser {
 		pattern = "^" + pattern
 	}
 	regex := regexp.MustCompile(pattern)
-	return func(s []byte) Res {
+	return func(s []byte) (interface{}, int, bool) {
 		match := regex.Find(s)
 		if match == nil {
-			return Res{}
+			return nil, 0, false
 		}
 
-		return Res{string(match), len(match), true}
+		return string(match), len(match), true
 	}
 }
 
@@ -68,11 +56,11 @@ func Sub(pattern string) Parser {
 		pattern = "^" + pattern
 	}
 	regex := regexp.MustCompile(pattern)
-	return func(s []byte) Res {
+	return func(s []byte) (interface{}, int, bool) {
 		n := ws(s)
 		match := regex.FindSubmatch(s[n:])
 		if match == nil {
-			return Res{}
+			return nil, 0, false
 		}
 		matches := make(map[string]string)
 		for i, n := range regex.SubexpNames() {
@@ -80,74 +68,74 @@ func Sub(pattern string) Parser {
 				matches[n] = string(match[i])
 			}
 		}
-		return Res{matches, n + len(match[0]), true}
+		return matches, n + len(match[0]), true
 	}
 }
 
 // All matches all parsers in order
 // Will result in a slice of all of the parsed values
 func All(ps ...Parser) Parser {
-	return func(s []byte) Res {
+	return func(s []byte) (interface{}, int, bool) {
 		var (
 			vs  []interface{}
 			sum int
 		)
 		for _, p := range ps {
-			res := p(s[sum:])
-			if !res.Ok {
-				return Res{}
+			res, n, ok := p(s[sum:])
+			if !ok {
+				return nil, 0, false
 			}
-			vs = append(vs, res.V)
-			sum += res.N
+			vs = append(vs, res)
+			sum += n
 		}
-		return Res{vs, sum, true}
+		return vs, sum, true
 	}
 }
 
 // Any matches any of the parsers, tested in order
 func Any(ps ...Parser) Parser {
-	return func(s []byte) Res {
+	return func(s []byte) (interface{}, int, bool) {
 		for _, p := range ps {
-			res := p(s)
-			if res.Ok {
-				return res
+			res, n, ok := p(s)
+			if ok {
+				return res, n, true
 			}
 		}
-		return Res{}
+		return nil, 0, false
 	}
 }
 
-// Atom scans for a single atom
+// Atom scans for a single atom, skipping whitespace
 func Atom(val string) Parser {
 	b := []byte(val)
-	return func(s []byte) Res {
+	return func(s []byte) (interface{}, int, bool) {
 		if n := ws(s); bytes.HasPrefix(s[n:], b) {
-			return Res{nil, n + len(b), true}
+			return nil, n + len(b), true
 		}
-		return Res{}
+		return nil, 0, false
 	}
 }
 
 // AtomE is like Atom but without skipping leading whitespace
 func AtomE(val string) Parser {
 	b := []byte(val)
-	return func(s []byte) Res {
+	return func(s []byte) (interface{}, int, bool) {
 		if bytes.HasPrefix(s, b) {
-			return Res{nil, len(b), true}
+			return nil, len(b), true
 		}
-		return Res{}
+		return nil, 0, false
 	}
 }
 
 // RuneIn matches a single rune of the ones in val
 func RuneIn(val string) Parser {
-	return func(s []byte) Res {
+	return func(s []byte) (interface{}, int, bool) {
 		w := ws(s)
-		r, n := utf8.DecodeRune(s[w:])
-		if strings.ContainsRune(val, r) {
-			return Res{r, w + n, true}
+		res, n := utf8.DecodeRune(s[w:])
+		if strings.ContainsRune(val, res) {
+			return res, w + n, true
 		}
-		return Res{}
+		return nil, 0, false
 	}
 }
 
@@ -157,36 +145,36 @@ type None struct{}
 // Opt turns a parser into an optional parser
 // Will return a result that's either Missing or the result itself
 func (p Parser) Opt() Parser {
-	return func(s []byte) Res {
-		res := p(s)
-		if !res.Ok {
-			return Res{None{}, 0, true}
+	return func(s []byte) (interface{}, int, bool) {
+		res, n, ok := p(s)
+		if !ok {
+			return None{}, 0, true
 		}
-		return res
+		return res, n, true
 	}
 }
 
 // Or is like Opt but returns the value given if the parser is unsuccessful
 func (p Parser) Or(or interface{}) Parser {
-	return func(s []byte) Res {
-		res := p(s)
-		if !res.Ok {
-			return Res{or, 0, true}
+	return func(s []byte) (interface{}, int, bool) {
+		res, n, ok := p(s)
+		if !ok {
+			return or, 0, true
 		}
-		return res
+		return res, n, true
 	}
 }
 
 // Map maps the result of a parser to a different result
 // If the Mapper returns nil, the parser returns as invalid
 func (p Parser) Map(f MapperFunc) Parser {
-	return func(s []byte) Res {
-		if res := p(s); res.Ok {
-			if v := f(res.V); v != nil {
-				return Res{v, res.N, true}
+	return func(s []byte) (interface{}, int, bool) {
+		if res, n, ok := p(s); ok {
+			if v := f(res); v != nil {
+				return v, n, true
 			}
 		}
-		return Res{}
+		return nil, 0, false
 	}
 }
 

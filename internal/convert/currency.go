@@ -7,15 +7,18 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 )
 
-const endpointCurrencies = `https://free.currconv.com/api/v7/currencies`
-const endpointConvert = `https://free.currconv.com/api/v7/convert`
+const endpoint = "https://free.currconv.com/api/v7"
+const endpointCurrencies = endpoint + "/currencies"
+const endpointConvert = endpoint + "/convert"
 
 var apiKey string
+var currencyOnce sync.Once
+var currencyInit func() (string, error)
 
 //US$, CA$, AUS$, €, Yen, GBP
-
 var extraAliases = map[string][]string{
 	"USD": {"$", "US$", "dollar", "dollars"},
 	"EUR": {"€", "euro", "euros"},
@@ -25,13 +28,25 @@ var extraAliases = map[string][]string{
 	"AUS": {"AUS$"},
 }
 
-// InitCurrency registers available currencies
-func InitCurrency(key string) {
-	apiKey = key
-	loadCurrencies()
+// InitCurrency registers a callback to retrieve the apiKey for registering currencies
+// Currencies are lazily loaded only when needed
+func InitCurrency(init func() (string, error)) {
+	currencyInit = init
 }
 
 func loadCurrencies() {
+	currencyOnce.Do(func() {
+		key, err := currencyInit()
+		if err != nil {
+			log.Println("Error retrieving currency API key. Currency conversion is not available:", err)
+		}
+		apiKey = key
+	})
+
+	if len(apiKey) == 0 {
+		return
+	}
+
 	log.Println("Loading currencies..")
 
 	currencyURL, _ := url.Parse(endpointCurrencies)
