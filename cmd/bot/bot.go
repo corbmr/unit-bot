@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"os"
 	"os/signal"
@@ -51,32 +52,24 @@ func main() {
 	log.Println("Unit Bot has stopped running")
 }
 
-type secret struct {
+type secrets struct {
 	UnitBotToken   string
 	CurrencyAPIKey string
 }
 
-func getSecret() (secret, error) {
-
-	token, tokenOk := os.LookupEnv("BOT_TOKEN")
-	apiKey, apiOk := os.LookupEnv("CURRENCY_KEY")
-
-	if !tokenOk || !apiOk {
-		if s, ok := os.LookupEnv("UNIT_BOT_SECRET"); ok {
-			var secret secret
-			err := json.Unmarshal([]byte(s), &secret)
-			if err == nil {
-				if !tokenOk {
-					token = secret.UnitBotToken
-				}
-				if !apiOk {
-					apiKey = secret.CurrencyAPIKey
-				}
-			}
-		}
+func getSecret() (secrets, error) {
+	s, ok := os.LookupEnv("UNIT_BOT_SECRET")
+	if !ok {
+		return secrets{}, errors.New("UNIT_BOT_SECRET not found")
 	}
 
-	return secret{token, apiKey}, nil
+	var secret secrets
+	err := json.Unmarshal([]byte(s), &secret)
+	if err != nil {
+		return secrets{}, err
+	}
+
+	return secret, nil
 }
 
 func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {

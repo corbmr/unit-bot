@@ -25,7 +25,11 @@ func init() {
 		}
 
 		var s struct{ CurrencyAPIKey string }
-		json.Unmarshal([]byte(*out.SecretString), &s)
+		err = json.Unmarshal([]byte(*out.SecretString), &s)
+		if err != nil {
+			return "", err
+		}
+
 		return s.CurrencyAPIKey, nil
 	})
 }
