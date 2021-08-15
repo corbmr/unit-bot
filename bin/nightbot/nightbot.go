@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"unit-bot/internal/convert"
+	convert "unit-bot"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"

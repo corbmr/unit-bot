@@ -21,17 +21,18 @@ func (lu *LengthUnit) FromFloat(f float64) UnitVal {
 
 // Length units
 var (
-	Meter      = &LengthUnit{"m", unit.Meter, unit.Length.Meters}
-	Kilometer  = &LengthUnit{"km", unit.Kilometer, unit.Length.Kilometers}
-	Millimeter = &LengthUnit{"mm", unit.Millimeter, unit.Length.Millimeters}
-	Centimeter = &LengthUnit{"cm", unit.Centimeter, unit.Length.Centimeters}
-	Nanometer  = &LengthUnit{"nm", unit.Nanometer, unit.Length.Nanometers}
-	Inch       = &LengthUnit{"in", unit.Inch, unit.Length.Inches}
-	Foot       = &LengthUnit{"ft", unit.Foot, unit.Length.Feet}
-	Yard       = &LengthUnit{"yd", unit.Yard, unit.Length.Yards}
-	Mile       = &LengthUnit{"miles", unit.Mile, unit.Length.Miles}
-	Furlong    = &LengthUnit{"furlongs", unit.Furlong, unit.Length.Furlongs}
-	Lightyear  = &LengthUnit{"ly", unit.LightYear, unit.Length.LightYears}
+	Meter        = &LengthUnit{"m", unit.Meter, unit.Length.Meters}
+	Kilometer    = &LengthUnit{"km", unit.Kilometer, unit.Length.Kilometers}
+	Millimeter   = &LengthUnit{"mm", unit.Millimeter, unit.Length.Millimeters}
+	Centimeter   = &LengthUnit{"cm", unit.Centimeter, unit.Length.Centimeters}
+	Nanometer    = &LengthUnit{"nm", unit.Nanometer, unit.Length.Nanometers}
+	Inch         = &LengthUnit{"in", unit.Inch, unit.Length.Inches}
+	Foot         = &LengthUnit{"ft", unit.Foot, unit.Length.Feet}
+	Yard         = &LengthUnit{"yd", unit.Yard, unit.Length.Yards}
+	Mile         = &LengthUnit{"miles", unit.Mile, unit.Length.Miles}
+	Furlong      = &LengthUnit{"furlongs", unit.Furlong, unit.Length.Furlongs}
+	Lightyear    = &LengthUnit{"ly", unit.LightYear, unit.Length.LightYears}
+	NauticalMile = &LengthUnit{"nautical mile", unit.NauticalMile, unit.Length.NauticalMiles}
 
 	FootInch = &FootInchUnit{"feet+inches"}
 )

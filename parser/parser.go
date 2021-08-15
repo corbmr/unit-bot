@@ -195,7 +195,7 @@ func Index(i int) MapperFunc {
 }
 
 func mapFloat(v interface{}) interface{} {
-	f, err := strconv.ParseFloat(strings.ReplaceAll(v.(string), ",", "."), 64)
+	f, err := strconv.ParseFloat(v.(string), 64)
 	if err != nil {
 		panic(err)
 	}

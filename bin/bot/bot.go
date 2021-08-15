@@ -7,9 +7,8 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"syscall"
 
-	"unit-bot/internal/convert"
+	convert "unit-bot"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -44,7 +43,7 @@ func main() {
 	log.Println("Unit Bot is now running")
 	log.Println("Press CTRL-C to stop")
 	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sc, os.Interrupt)
 	<-sc
 
 	// Cleanly close down the Discord session.
@@ -72,6 +71,8 @@ func getSecret() (secrets, error) {
 	return secret, nil
 }
 
+const cmdPrefix = "!conv "
+
 func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Just in case
 	defer func() {
@@ -80,12 +81,11 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 	}()
 
-	const prefix = "!conv "
-	if !strings.HasPrefix(m.Content, prefix) {
+	if !strings.HasPrefix(m.Content, cmdPrefix) {
 		return
 	}
 
-	res := convert.Process(strings.TrimPrefix(m.Content, prefix))
+	res := convert.Process(strings.TrimPrefix(m.Content, cmdPrefix))
 
 	_, err := s.ChannelMessageSend(m.ChannelID, res)
 	if err != nil {

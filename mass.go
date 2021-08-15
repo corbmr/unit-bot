@@ -19,6 +19,7 @@ var (
 	Gram     = &MassUnit{"g", unit.Gram, unit.Mass.Grams}
 	Kilogram = &MassUnit{"kg", unit.Kilogram, unit.Mass.Kilograms}
 	Pound    = &MassUnit{"lbs", unit.AvoirdupoisPound, unit.Mass.AvoirdupoisPounds}
+	Stone    = &MassUnit{"stones", unit.UkStone, unit.Mass.UkStones}
 )
 
 // MassVal is a mass value with unit

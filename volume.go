@@ -21,12 +21,12 @@ var (
 	Liter      = &VolumeUnit{"l", unit.Liter, unit.Volume.Liters}
 
 	Gallon     = &VolumeUnit{"gal", unit.USLiquidGallon, unit.Volume.USLiquidGallons}
-	Quart      = &VolumeUnit{"quart", unit.USLiquidGallon, unit.Volume.USLiquidGallons}
-	Pint       = &VolumeUnit{"pint", unit.USLiquidGallon, unit.Volume.USLiquidGallons}
-	Cup        = &VolumeUnit{"cup", unit.USLiquidGallon, unit.Volume.USLiquidGallons}
-	Ounce      = &VolumeUnit{"oz", unit.USLiquidGallon, unit.Volume.USLiquidGallons}
-	TableSpoon = &VolumeUnit{"tbsp", unit.USLiquidGallon, unit.Volume.USLiquidGallons}
-	TeaSpoon   = &VolumeUnit{"tsp", unit.USLiquidGallon, unit.Volume.USLiquidGallons}
+	Quart      = &VolumeUnit{"quart", unit.USLiquidQuart, unit.Volume.USLiquidQuarts}
+	Pint       = &VolumeUnit{"pint", unit.USLiquidPint, unit.Volume.USLiquidPints}
+	Cup        = &VolumeUnit{"cup", unit.USCup, unit.Volume.USCups}
+	FlOunce    = &VolumeUnit{"fl oz", unit.USFluidOunce, unit.Volume.USFluidOunces}
+	Tablespoon = &VolumeUnit{"tbsp", unit.USTableSpoon, unit.Volume.USTableSpoons}
+	Teaspoon   = &VolumeUnit{"tsp", unit.USTeaSpoon, unit.Volume.USTeaSpoons}
 )
 
 // VolumeVal is a volumetric value with unit
