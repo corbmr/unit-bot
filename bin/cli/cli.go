@@ -13,9 +13,9 @@ import (
 
 func main() {
 	convert.InitCurrency(func() (string, error) {
-		key, ok := os.LookupEnv("CURRENCY_KEY")
+		key, ok := os.LookupEnv("CURRENCY_API_KEY")
 		if !ok {
-			return "", errors.New("CURRENCY_KEY not found")
+			return "", errors.New("CURRENCY_API_KEY not found")
 		}
 		return key, nil
 	})

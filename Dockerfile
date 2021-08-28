@@ -1,11 +1,9 @@
-FROM golang AS build
-RUN mkdir /bot
-COPY  . /bot
+FROM golang:1.17 AS build
 WORKDIR /bot
-RUN go mod download
-RUN CGO_ENABLED=0 go build -o unit-bot ./bin/bot
+COPY . .
+RUN CGO_ENABLED=0 go build -mod vendor -o unit-bot ./bin/bot
 
 FROM alpine
-WORKDIR /unit-bot
-COPY --from=build /bot/unit-bot ./bot
-ENTRYPOINT ["/unit-bot/bot"]
+WORKDIR /bot
+COPY --from=build /bot/unit-bot .
+ENTRYPOINT ["/bot/unit-bot"]

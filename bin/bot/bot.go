@@ -1,8 +1,6 @@
 package main
 
 import (
-	"encoding/json"
-	"errors"
 	"log"
 	"os"
 	"os/signal"
@@ -14,20 +12,16 @@ import (
 )
 
 func main() {
-	secret, err := getSecret()
-	if err != nil {
-		log.Fatalln("unable to get secrets:", err)
-	}
-
 	convert.InitCurrency(func() (string, error) {
-		return secret.CurrencyAPIKey, nil
+		return os.Getenv("CURRENCY_API_KEY"), nil
 	})
 
-	if len(secret.UnitBotToken) == 0 {
+	token := os.Getenv("UNIT_BOT_TOKEN")
+	if len(token) == 0 {
 		log.Fatalln("Discord token not found")
 	}
 
-	dg, err := discordgo.New("Bot " + secret.UnitBotToken)
+	dg, err := discordgo.New("Bot " + token)
 	if err != nil {
 		log.Fatalln("error creating discord session,", err)
 	}
@@ -38,6 +32,7 @@ func main() {
 	if err != nil {
 		log.Fatalln("error opening connection,", err)
 	}
+	defer dg.Close()
 
 	// Wait here until CTRL-C or other term signal is received.
 	log.Println("Unit Bot is now running")
@@ -45,30 +40,7 @@ func main() {
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, os.Interrupt)
 	<-sc
-
-	// Cleanly close down the Discord session.
-	dg.Close()
 	log.Println("Unit Bot has stopped running")
-}
-
-type secrets struct {
-	UnitBotToken   string
-	CurrencyAPIKey string
-}
-
-func getSecret() (secrets, error) {
-	s, ok := os.LookupEnv("UNIT_BOT_SECRET")
-	if !ok {
-		return secrets{}, errors.New("UNIT_BOT_SECRET not found")
-	}
-
-	var secret secrets
-	err := json.Unmarshal([]byte(s), &secret)
-	if err != nil {
-		return secrets{}, err
-	}
-
-	return secret, nil
 }
 
 const cmdPrefix = "!conv "

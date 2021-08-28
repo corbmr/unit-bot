@@ -1,0 +1,7 @@
+version: '3.9'
+services:
+  unit-bot:
+    build: .
+    environment:
+      - UNIT_BOT_TOKEN
+      - CURRENCY_API_KEY
