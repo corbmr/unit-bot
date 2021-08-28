@@ -1,3 +1,4 @@
+//go:build linux
 package main
 
 import (
@@ -5,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"syscall"
 
 	convert "unit-bot"
 
@@ -38,7 +40,7 @@ func main() {
 	log.Println("Unit Bot is now running")
 	log.Println("Press CTRL-C to stop")
 	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, os.Interrupt)
+	signal.Notify(sc, os.Interrupt, syscall.SIGTERM)
 	<-sc
 	log.Println("Unit Bot has stopped running")
 }
