@@ -1,6 +1,6 @@
 package convert
 
-var builtinUnits = map[UnitType][]string{
+var supportedUnits = map[UnitType][]string{
 	// Length
 	Meter:        {"m", "meter", "meters"},
 	Kilometer:    {"km", "kilometer", "kilometers"},

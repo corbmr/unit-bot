@@ -15,9 +15,8 @@ import (
 const secretName = "UnitBotSecret"
 
 func init() {
-	convert.InitCurrency(func() (string, error) {
-		session := session.Must(session.NewSession())
-		secrets := secretsmanager.New(session)
+	convert.CurrencyInit = func() (string, error) {
+		secrets := secretsmanager.New(session.Must(session.NewSession()))
 
 		out, err := secrets.GetSecretValue(&secretsmanager.GetSecretValueInput{SecretId: aws.String(secretName)})
 		if err != nil {
@@ -31,7 +30,7 @@ func init() {
 		}
 
 		return s.CurrencyAPIKey, nil
-	})
+	}
 }
 
 func main() {

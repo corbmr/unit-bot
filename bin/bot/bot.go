@@ -15,9 +15,9 @@ import (
 )
 
 func main() {
-	convert.InitCurrency(func() (string, error) {
+	convert.CurrencyInit = func() (string, error) {
 		return os.Getenv("CURRENCY_API_KEY"), nil
-	})
+	}
 
 	token := os.Getenv("UNIT_BOT_TOKEN")
 	if len(token) == 0 {
@@ -50,7 +50,9 @@ func main() {
 	<-sc
 }
 
-const cmdPrefix = "!conv "
+const (
+	convertPrefix = "!conv "
+)
 
 func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// Just in case
@@ -60,21 +62,23 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 	}()
 
-	if !strings.HasPrefix(m.Content, cmdPrefix) {
-		return
+	if strings.HasPrefix(m.Content, convertPrefix) {
+		res := convert.Process(strings.TrimPrefix(m.Content, convertPrefix))
+		err := reply(s, m.Message, res)
+		if err != nil {
+			log.Println("Unable to send message", err)
+		}
 	}
+}
 
-	res := convert.Process(strings.TrimPrefix(m.Content, cmdPrefix))
-
+func reply(s *discordgo.Session, m *discordgo.Message, content string) error {
 	_, err := s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
-		Content: res,
+		Content: content,
 		Reference: &discordgo.MessageReference{
 			MessageID: m.ID,
 			ChannelID: m.ChannelID,
 		},
 		AllowedMentions: &discordgo.MessageAllowedMentions{},
 	})
-	if err != nil {
-		log.Println("Unable to send message", err)
-	}
+	return err
 }

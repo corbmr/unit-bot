@@ -7,7 +7,7 @@ import (
 	"github.com/martinlindhe/unit"
 )
 
-// lengthunit is a unit of length
+// LengthUnit is a unit of length
 type LengthUnit struct {
 	unitCommon
 	length unit.Length

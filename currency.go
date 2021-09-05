@@ -2,88 +2,96 @@ package convert
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"net/url"
-	"strings"
+
+	"github.com/patrickmn/go-cache"
 )
 
-const endpoint = "https://free.currconv.com/api/v7"
-const endpointCurrencies = endpoint + "/currencies"
-const endpointConvert = endpoint + "/convert"
+const (
+	endpoint           = "https://free.currconv.com/api/v7"
+	endpointCurrencies = endpoint + "/currencies"
+	endpointConvert    = endpoint + "/convert"
+)
 
-var apiKey string
-var currencyInit func() (string, error)
+var (
+	// ErrorCurrencyService occurs when there is an error while calling the currency service
+	ErrorCurrencyService = errors.New("Currency conversion not available right now")
 
-var extraAliases = map[string][]string{
-	"USD": {"$", "US$", "dollar", "dollars"},
-	"EUR": {"€", "euro", "euros"},
-	"JPY": {"¥", "yen"},
-	"GBP": {"£"},
-	"CAD": {"CA$"},
-	"AUS": {"AUS$"},
-}
+	extraAliases = map[string][]string{
+		"USD": {"$", "US$", "dollar", "dollars"},
+		"EUR": {"€", "euro", "euros"},
+		"JPY": {"¥", "yen"},
+		"GBP": {"£"},
+		"CAD": {"CA$"},
+		"AUS": {"AUS$"},
+	}
+)
 
-// InitCurrency registers a callback to retrieve the apiKey for registering currencies
-// Currencies are lazily loaded only when needed
-func InitCurrency(init func() (string, error)) {
-	currencyInit = init
+type supportedCurrencies struct {
+	Results map[string]struct {
+		ID           string
+		CurrencyName string
+	}
 }
 
 func loadCurrencies() {
-	key, err := currencyInit()
+	log.Println("Retrieving currencyApiKey")
+	var err error
+	currencyApiKey, err = CurrencyInit()
 	if err != nil {
 		log.Println("Error retrieving currency API key. Currency conversion is not available:", err)
 	}
-
-	apiKey = key
-
 	log.Println("Loading currencies..")
 
-	currencyURL, _ := url.Parse(endpointCurrencies)
-	q := currencyURL.Query()
-	q.Set("apiKey", apiKey)
-	currencyURL.RawQuery = q.Encode()
-
-	resp, err := http.Get(currencyURL.String())
+	currencies, err := doGetSupported()
 	if err != nil {
-		log.Println("Currencies not available:", err)
-		return
-	}
-
-	var response struct {
-		Results map[string]struct {
-			ID           string
-			CurrencyName string
-		}
-	}
-
-	decoder := json.NewDecoder(resp.Body)
-	err = decoder.Decode(&response)
-	if err != nil {
-		log.Println("Error decoding currencies response:", err)
+		log.Println("Error loading currencies:", err)
 		return
 	}
 
 	log.Println("Supported currencies:")
-	for _, curr := range response.Results {
-		key := strings.ToLower(curr.ID)
-		// Only add currency if it does not already exist as a unit
-		// doing this because we are not manually controlling the currencies available
-		// like we are with the other units
-		if _, ok := unitMap[key]; !ok {
-			log.Println(curr.ID, curr.CurrencyName)
-			curr := &CurrencyUnit{curr.ID}
-			unitMap[key] = curr
-			if aliases, ok := extraAliases[curr.id]; ok {
-				RegisterAliases(curr, aliases)
-			}
+	unitLock.Lock()
+	defer unitLock.Unlock()
+	for _, curr := range currencies.Results {
+		log.Println(curr.ID, curr.CurrencyName)
+		unit := &CurrencyUnit{curr.ID}
+		supportedUnits[unit] = append(supportedUnits[unit], curr.ID)
+		if aliases, ok := extraAliases[unit.id]; ok {
+			supportedUnits[unit] = append(supportedUnits[unit], aliases...)
 		}
-
 	}
+	updateUnitMap()
 
 	log.Println("Currencies loaded")
+}
+
+func doGetSupported() (*supportedCurrencies, error) {
+	if len(currencyApiKey) == 0 {
+		return nil, ErrorCurrencyService
+	}
+
+	currencyURL, _ := url.Parse(endpointCurrencies)
+	q := currencyURL.Query()
+	q.Set("apiKey", currencyApiKey)
+	currencyURL.RawQuery = q.Encode()
+
+	resp, err := http.Get(currencyURL.String())
+	if err != nil {
+		return nil, err
+	}
+
+	var response supportedCurrencies
+	decoder := json.NewDecoder(resp.Body)
+	err = decoder.Decode(&response)
+	if err != nil {
+		return nil, err
+	}
+
+	return &response, nil
 }
 
 // CurrencyUnit is a unit of currency
@@ -92,7 +100,7 @@ type CurrencyUnit struct {
 }
 
 // Name implements UnitType for Currency
-func (cu *CurrencyUnit) Name() string {
+func (cu *CurrencyUnit) String() string {
 	return cu.id
 }
 
@@ -108,32 +116,51 @@ type CurrencyVal struct {
 }
 
 func (cv CurrencyVal) String() string {
-	return fmt.Sprintf("%.2f %s", cv.V, cv.U.Name())
+	return fmt.Sprintf("%.2f %s", cv.V, cv.U)
 }
-
-// ErrorCurrencyService occurs when there is an error while calling the currency service
-var ErrorCurrencyService = fmt.Errorf("Currency conversion not available right now")
 
 // Convert implements UnitVal conversion
 func (cv CurrencyVal) Convert(to UnitType) (UnitVal, error) {
 	if to, ok := to.(*CurrencyUnit); ok {
-		curr, err := convertCurrency(cv.U, to, cv.V)
+		rate, err := getRate(cv.U, to)
 		if err != nil {
+			if err != ErrorCurrencyService {
+				log.Println("Error calling currency service,", err)
+			}
 			return nil, ErrorCurrencyService
 		}
-		return CurrencyVal{curr, to}, nil
+		return CurrencyVal{cv.V * rate, to}, nil
 	}
 	return nil, ErrorConversion{cv.U, to}
 }
 
-func convertCurrency(from, to *CurrencyUnit, val float64) (float64, error) {
+func getRate(from, to *CurrencyUnit) (float64, error) {
+	op := from.id + "_" + to.id
+	rate, ok := currencyCache.Get(op)
+	if ok {
+		log.Println("Cache hit:", op)
+		return rate.(float64), nil
+	} else {
+		log.Println("Cache miss:", op)
+		r, err := doGetRate(op)
+		if err != nil {
+			return 0, err
+		}
+		currencyCache.Set(op, r, cache.DefaultExpiration)
+		return r, nil
+	}
+}
+
+func doGetRate(op string) (float64, error) {
+	if len(currencyApiKey) == 0 {
+		return 0, ErrorCurrencyService
+	}
+
 	convertURL, _ := url.Parse(endpointConvert)
 	q := convertURL.Query()
-	q.Set("apiKey", apiKey)
+	q.Set("apiKey", currencyApiKey)
 	q.Set("compact", "ultra")
-
-	op := fmt.Sprintf("%s_%s", from.id, to.id)
-	q.Add("q", op)
+	q.Set("q", op)
 	convertURL.RawQuery = q.Encode()
 
 	resp, err := http.Get(convertURL.String())
@@ -153,5 +180,5 @@ func convertCurrency(from, to *CurrencyUnit, val float64) (float64, error) {
 		return 0, fmt.Errorf("Unexpected response: %v", response)
 	}
 
-	return val * conversion, nil
+	return conversion, nil
 }

@@ -12,13 +12,13 @@ import (
 )
 
 func main() {
-	convert.InitCurrency(func() (string, error) {
+	convert.CurrencyInit = func() (string, error) {
 		key, ok := os.LookupEnv("CURRENCY_API_KEY")
 		if !ok {
 			return "", errors.New("CURRENCY_API_KEY not found")
 		}
 		return key, nil
-	})
+	}
 
 	rl, err := readline.New("> ")
 	if err != nil {

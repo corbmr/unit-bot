@@ -4,38 +4,65 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
+
+	"github.com/patrickmn/go-cache"
 )
 
-var unitMap map[string]UnitType
+var (
+	// InitCurrency registers a callback to retrieve the apiKey for registering currencies
+	// Currencies are lazily loaded only when needed
+	CurrencyInit func() (string, error)
+)
+
+var (
+	unitMap  map[string]UnitType
+	unitLock sync.RWMutex
+
+	currencyApiKey string
+	currencyOnce   sync.Once
+	currencyCache  *cache.Cache
+)
 
 func init() {
 	unitMap = make(map[string]UnitType)
-	for unit, aliases := range builtinUnits {
+	updateUnitMap()
+	currencyCache = cache.New(24*time.Hour, 1*time.Hour)
+}
+
+func updateUnitMap() {
+	for unit, aliases := range supportedUnits {
 		for _, alias := range aliases {
-			unitMap[strings.ToLower(alias)] = unit
+			alias = strings.ToLower(alias)
+			if _, ok := unitMap[alias]; !ok {
+				unitMap[alias] = unit
+			}
 		}
 	}
 }
 
-// RegisterAliases registers aliases for a UnitType
-// An alias is only applied if it does not already exist
-func RegisterAliases(unit UnitType, aliases []string) {
-	for _, alias := range aliases {
-		if _, ok := unitMap[alias]; !ok {
-			unitMap[alias] = unit
-		}
+// SupportedUnits returns all of the supported unit types mapped to a list of alises
+func SupportedUnits() map[UnitType][]string {
+	unitLock.RLock()
+	defer unitLock.RUnlock()
+	supported := make(map[UnitType][]string, len(supportedUnits))
+	for unit, aliases := range supportedUnits {
+		supported[unit] = aliases
 	}
+	return supported
 }
-
-var currencyOnce sync.Once
 
 // ParseUnit parses a UnitType.
 // Lazily loads currency units
 func ParseUnit(s string) (UnitType, bool) {
 	s = strings.ToLower(s)
+	unitLock.RLock()
+	defer unitLock.RUnlock()
 	u, ok := unitMap[s]
 	if !ok {
+		unitLock.RUnlock()
 		currencyOnce.Do(loadCurrencies)
+		unitLock.RLock()
 		u, ok = unitMap[s]
 	}
 	return u, ok
@@ -43,7 +70,7 @@ func ParseUnit(s string) (UnitType, bool) {
 
 // UnitType represent a single type of unit
 type UnitType interface {
-	Name() string
+	fmt.Stringer
 	FromFloat(float64) UnitVal
 }
 
@@ -59,15 +86,15 @@ type ErrorConversion struct {
 }
 
 func (err ErrorConversion) Error() string {
-	return fmt.Sprintf("Can't convert from %s to %s", err.From.Name(), err.To.Name())
+	return fmt.Sprintf("Can't convert from %s to %s", err.From.String(), err.To.String())
 }
 
 type unitCommon string
 
-func (c unitCommon) Name() string {
+func (c unitCommon) String() string {
 	return string(c)
 }
 
 func simpleUnitString(f float64, u UnitType) string {
-	return fmt.Sprintf("%.6g %s", f, u.Name())
+	return fmt.Sprintf("%.6g %s", f, u.String())
 }
