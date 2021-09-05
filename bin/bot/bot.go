@@ -1,4 +1,5 @@
 //go:build linux
+
 package main
 
 import (
@@ -28,13 +29,18 @@ func main() {
 		log.Fatalln("error creating discord session,", err)
 	}
 
+	dg.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages
+	dg.LogLevel = discordgo.LogWarning
 	dg.AddHandler(onMessageCreate)
 
 	err = dg.Open()
 	if err != nil {
 		log.Fatalln("error opening connection,", err)
 	}
-	defer dg.Close()
+	defer func() {
+		dg.Close()
+		log.Println("Unit Bot has stopped running")
+	}()
 
 	// Wait here until CTRL-C or other term signal is received.
 	log.Println("Unit Bot is now running")
@@ -42,7 +48,6 @@ func main() {
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, os.Interrupt, syscall.SIGTERM)
 	<-sc
-	log.Println("Unit Bot has stopped running")
 }
 
 const cmdPrefix = "!conv "
@@ -61,7 +66,14 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	res := convert.Process(strings.TrimPrefix(m.Content, cmdPrefix))
 
-	_, err := s.ChannelMessageSend(m.ChannelID, res)
+	_, err := s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
+		Content: res,
+		Reference: &discordgo.MessageReference{
+			MessageID: m.ID,
+			ChannelID: m.ChannelID,
+		},
+		AllowedMentions: &discordgo.MessageAllowedMentions{},
+	})
 	if err != nil {
 		log.Println("Unable to send message", err)
 	}
