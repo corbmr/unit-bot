@@ -14,7 +14,7 @@ func Process(cmd string) string {
 		return "Usage: !conv [amount][from-unit] to [to-unit]"
 	}
 
-	c := res.([]interface{})
+	c := res.([]any)
 	cmdFrom := c[0]
 	cmdTo := c[2].(string)
 
@@ -65,20 +65,20 @@ var (
 	convertExpr = p.All(fromExpr, p.Atom(`to`), unitToken)
 )
 
-func mapSimpleUnit(v interface{}) interface{} {
-	vs := v.([]interface{})
+func mapSimpleUnit(v any) any {
+	vs := v.([]any)
 	return unparsedUnitVal{vs[0].(float64), vs[1].(string)}
 }
 
-func mapFeetInches(v interface{}) interface{} {
-	vs := v.([]interface{})
+func mapFeetInches(v any) any {
+	vs := v.([]any)
 	feet := vs[0].(int)
 	inches := vs[2].(int)
 	return FootInchVal{Feet: float64(feet), Inches: float64(inches)}
 }
 
-func mapCurrency(v interface{}) interface{} {
-	c := v.([]interface{})
+func mapCurrency(v any) any {
+	c := v.([]any)
 	u, ok := ParseUnit(string(c[0].(rune)))
 	if !ok {
 		return nil

@@ -15,7 +15,7 @@ func ws(s []byte) int {
 }
 
 // Parser scans bytes and returns result a result, number of bytes consumed, and whether the parse was successful
-type Parser func([]byte) (interface{}, int, bool)
+type Parser func([]byte) (any, int, bool)
 
 // Token scans for a pattern, skipping leading whitespace if necessary
 func Token(pattern string) Parser {
@@ -23,7 +23,7 @@ func Token(pattern string) Parser {
 		pattern = "^" + pattern
 	}
 	regex := regexp.MustCompile(pattern)
-	return func(s []byte) (interface{}, int, bool) {
+	return func(s []byte) (any, int, bool) {
 		n := ws(s)
 		match := regex.Find(s[n:])
 		if match == nil {
@@ -40,7 +40,7 @@ func TokenE(pattern string) Parser {
 		pattern = "^" + pattern
 	}
 	regex := regexp.MustCompile(pattern)
-	return func(s []byte) (interface{}, int, bool) {
+	return func(s []byte) (any, int, bool) {
 		match := regex.Find(s)
 		if match == nil {
 			return nil, 0, false
@@ -56,7 +56,7 @@ func Sub(pattern string) Parser {
 		pattern = "^" + pattern
 	}
 	regex := regexp.MustCompile(pattern)
-	return func(s []byte) (interface{}, int, bool) {
+	return func(s []byte) (any, int, bool) {
 		n := ws(s)
 		match := regex.FindSubmatch(s[n:])
 		if match == nil {
@@ -75,9 +75,9 @@ func Sub(pattern string) Parser {
 // All matches all parsers in order
 // Will result in a slice of all of the parsed values
 func All(ps ...Parser) Parser {
-	return func(s []byte) (interface{}, int, bool) {
+	return func(s []byte) (any, int, bool) {
 		var (
-			vs  []interface{}
+			vs  []any
 			sum int
 		)
 		for _, p := range ps {
@@ -94,7 +94,7 @@ func All(ps ...Parser) Parser {
 
 // Any matches any of the parsers, tested in order
 func Any(ps ...Parser) Parser {
-	return func(s []byte) (interface{}, int, bool) {
+	return func(s []byte) (any, int, bool) {
 		for _, p := range ps {
 			res, n, ok := p(s)
 			if ok {
@@ -108,7 +108,7 @@ func Any(ps ...Parser) Parser {
 // Atom scans for a single atom, skipping whitespace
 func Atom(val string) Parser {
 	b := []byte(val)
-	return func(s []byte) (interface{}, int, bool) {
+	return func(s []byte) (any, int, bool) {
 		if n := ws(s); bytes.HasPrefix(s[n:], b) {
 			return nil, n + len(b), true
 		}
@@ -119,7 +119,7 @@ func Atom(val string) Parser {
 // AtomE is like Atom but without skipping leading whitespace
 func AtomE(val string) Parser {
 	b := []byte(val)
-	return func(s []byte) (interface{}, int, bool) {
+	return func(s []byte) (any, int, bool) {
 		if bytes.HasPrefix(s, b) {
 			return nil, len(b), true
 		}
@@ -129,7 +129,7 @@ func AtomE(val string) Parser {
 
 // RuneIn matches a single rune of the ones in val
 func RuneIn(val string) Parser {
-	return func(s []byte) (interface{}, int, bool) {
+	return func(s []byte) (any, int, bool) {
 		w := ws(s)
 		res, n := utf8.DecodeRune(s[w:])
 		if strings.ContainsRune(val, res) {
@@ -145,7 +145,7 @@ type None struct{}
 // Opt turns a parser into an optional parser
 // Will return a result that's either Missing or the result itself
 func (p Parser) Opt() Parser {
-	return func(s []byte) (interface{}, int, bool) {
+	return func(s []byte) (any, int, bool) {
 		res, n, ok := p(s)
 		if !ok {
 			return None{}, 0, true
@@ -155,8 +155,8 @@ func (p Parser) Opt() Parser {
 }
 
 // Or is like Opt but returns the value given if the parser is unsuccessful
-func (p Parser) Or(or interface{}) Parser {
-	return func(s []byte) (interface{}, int, bool) {
+func (p Parser) Or(or any) Parser {
+	return func(s []byte) (any, int, bool) {
 		res, n, ok := p(s)
 		if !ok {
 			return or, 0, true
@@ -168,7 +168,7 @@ func (p Parser) Or(or interface{}) Parser {
 // Map maps the result of a parser to a different result
 // If the Mapper returns nil, the parser returns as invalid
 func (p Parser) Map(f MapperFunc) Parser {
-	return func(s []byte) (interface{}, int, bool) {
+	return func(s []byte) (any, int, bool) {
 		if res, n, ok := p(s); ok {
 			if v := f(res); v != nil {
 				return v, n, true
@@ -185,16 +185,16 @@ var Float = Token(`[+-]?\d+([.,]\d*)?([eE][+-]?\d+)?`).Map(mapFloat)
 var Int = Token(`[+-]?\d+`).Map(mapInt)
 
 // MapperFunc is a function for mapping parser results
-type MapperFunc = func(interface{}) interface{}
+type MapperFunc = func(any) any
 
 // Index creates a mapper that maps the result to an index in a slice
 func Index(i int) MapperFunc {
-	return func(v interface{}) interface{} {
-		return v.([]interface{})[i]
+	return func(v any) any {
+		return v.([]any)[i]
 	}
 }
 
-func mapFloat(v interface{}) interface{} {
+func mapFloat(v any) any {
 	f, err := strconv.ParseFloat(v.(string), 64)
 	if err != nil {
 		panic(err)
@@ -202,7 +202,7 @@ func mapFloat(v interface{}) interface{} {
 	return f
 }
 
-func mapInt(v interface{}) interface{} {
+func mapInt(v any) any {
 	i, err := strconv.Atoi(v.(string))
 	if err != nil {
 		panic(err)
