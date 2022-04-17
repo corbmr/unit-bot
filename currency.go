@@ -44,10 +44,11 @@ func loadCurrencies() {
 	currencyApiKey, err = CurrencyInit()
 	if err != nil {
 		log.Println("Error retrieving currency API key. Currency conversion is not available:", err)
+		return
 	}
 	log.Println("Loading currencies..")
 
-	currencies, err := doGetSupported()
+	currencies, err := retrieveSupportedCurrencies()
 	if err != nil {
 		log.Println("Error loading currencies:", err)
 		return
@@ -64,12 +65,12 @@ func loadCurrencies() {
 			supportedUnits[unit] = append(supportedUnits[unit], aliases...)
 		}
 	}
-	updateUnitMap()
+	refreshUnitMap()
 
 	log.Println("Currencies loaded")
 }
 
-func doGetSupported() (*supportedCurrencies, error) {
+func retrieveSupportedCurrencies() (*supportedCurrencies, error) {
 	if len(currencyApiKey) == 0 {
 		return nil, ErrorCurrencyService
 	}
@@ -142,7 +143,7 @@ func getRate(from, to *CurrencyUnit) (float64, error) {
 		return rate.(float64), nil
 	} else {
 		log.Println("Cache miss:", op)
-		r, err := doGetRate(op)
+		r, err := getRateNoCache(op)
 		if err != nil {
 			return 0, err
 		}
@@ -151,7 +152,7 @@ func getRate(from, to *CurrencyUnit) (float64, error) {
 	}
 }
 
-func doGetRate(op string) (float64, error) {
+func getRateNoCache(op string) (float64, error) {
 	if len(currencyApiKey) == 0 {
 		return 0, ErrorCurrencyService
 	}

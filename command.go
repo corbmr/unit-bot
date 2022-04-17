@@ -7,19 +7,15 @@ import (
 	p "unit-bot/parser"
 )
 
-func Process(cmd string) string {
-	res, _, ok := convertExpr([]byte(cmd))
+func Process(expr string) string {
+	cmd, _, ok := convertExpr([]byte(expr))
 	if !ok {
-		log.Printf("Invalid command: `%v` %v\n", cmd, res)
+		log.Printf("Invalid command: `%v` %v\n", expr, cmd)
 		return "Usage: !conv [amount][from-unit] to [to-unit]"
 	}
 
-	c := res.([]any)
-	cmdFrom := c[0]
-	cmdTo := c[2].(string)
-
 	var from UnitVal
-	switch uv := cmdFrom.(type) {
+	switch uv := cmd.from.(type) {
 	case unparsedUnitVal:
 		fromUnit, ok := ParseUnit(uv.unit)
 		if !ok {
@@ -32,9 +28,9 @@ func Process(cmd string) string {
 		from = uv
 	}
 
-	toUnit, ok := ParseUnit(cmdTo)
+	toUnit, ok := ParseUnit(cmd.to)
 	if !ok {
-		return fmt.Sprintf("Invalid unit %s", cmdTo)
+		return fmt.Sprintf("Invalid unit %s", cmd.to)
 	}
 
 	to, err := from.Convert(toUnit)
@@ -50,38 +46,30 @@ type unparsedUnitVal struct {
 	unit string
 }
 
-var (
-	unitToken = p.Token(`[A-Za-z+/$€¥£]+`)
-
-	inches     = p.All(p.Int, p.Atom(`"`).Opt()).Map(p.Index(0))
-	feetInches = p.All(p.Int, p.Atom(`'`), inches.Or(0)).Map(mapFeetInches)
-
-	simpleUnitVal = p.All(p.Float, unitToken).Map(mapSimpleUnit)
-
-	currency = p.All(p.RuneIn(`$€¥£`), p.Float).Map(mapCurrency)
-
-	fromExpr = p.Any(simpleUnitVal, feetInches, currency)
-
-	convertExpr = p.All(fromExpr, p.Atom(`to`), unitToken)
-)
-
-func mapSimpleUnit(v any) any {
-	vs := v.([]any)
-	return unparsedUnitVal{vs[0].(float64), vs[1].(string)}
+type command struct {
+	from any
+	to   string
 }
 
-func mapFeetInches(v any) any {
-	vs := v.([]any)
-	feet := vs[0].(int)
-	inches := vs[2].(int)
+var (
+	unitToken     = p.Token(`[A-Za-z+/$€¥£]+`)
+	inches        = p.Parse2(p.Int, p.Atom(`"`).Opt(), func(i int, _ string) int { return i })
+	feet          = p.Parse2(p.Int, p.Atom(`'`), func(i int, _ string) int { return i })
+	feetInches    = p.Parse2(feet, inches.Or(0), mapFeetInches)
+	simpleUnitVal = p.Parse2(p.Float, unitToken, mapSimpleUnit)
+	currency      = p.Parse2(p.RuneIn(`$€¥£`), p.Float, mapCurrency)
+	fromExpr      = p.First(simpleUnitVal, feetInches, currency)
+	convertExpr   = p.Parse3(fromExpr, p.Atom(`to`), unitToken, func(v any, _ string, u string) command { return command{v, u} })
+)
+
+func mapSimpleUnit(v float64, u string) any {
+	return unparsedUnitVal{v, u}
+}
+
+func mapFeetInches(feet int, inches int) any {
 	return FootInchVal{Feet: float64(feet), Inches: float64(inches)}
 }
 
-func mapCurrency(v any) any {
-	c := v.([]any)
-	u, ok := ParseUnit(string(c[0].(rune)))
-	if !ok {
-		return nil
-	}
-	return CurrencyVal{V: c[1].(float64), U: u.(*CurrencyUnit)}
+func mapCurrency(c rune, v float64) any {
+	return unparsedUnitVal{v, string(c)}
 }

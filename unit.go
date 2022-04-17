@@ -26,11 +26,11 @@ var (
 
 func init() {
 	unitMap = make(map[string]UnitType)
-	updateUnitMap()
+	refreshUnitMap()
 	currencyCache = cache.New(24*time.Hour, 1*time.Hour)
 }
 
-func updateUnitMap() {
+func refreshUnitMap() {
 	for unit, aliases := range supportedUnits {
 		for _, alias := range aliases {
 			alias = strings.ToLower(alias)
