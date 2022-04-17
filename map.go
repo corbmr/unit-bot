@@ -30,6 +30,7 @@ var supportedUnits = map[UnitType][]string{
 	// Speed
 	MilesPerHour:      {"mph"},
 	KilometersPerHour: {"kmh", "km/h", "kmph"},
+	LightSpeed:        {"light", "lights", "lightspeed"},
 
 	// Volume
 	Liter:      {"l", "liter", "liters"},

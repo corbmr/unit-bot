@@ -18,6 +18,7 @@ func (su *SpeedUnit) FromFloat(f float64) UnitVal {
 var (
 	MilesPerHour      = &SpeedUnit{"mph", unit.MilesPerHour, unit.Speed.MilesPerHour}
 	KilometersPerHour = &SpeedUnit{"km/h", unit.KilometersPerHour, unit.Speed.KilometersPerHour}
+	LightSpeed        = &SpeedUnit{"C", unit.SpeedOfLight, unit.Speed.SpeedOfLight}
 )
 
 // SpeedVal is a speed value with unit
