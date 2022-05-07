@@ -1,7 +1,7 @@
-FROM golang:1.17 AS build
+FROM golang:1.18 AS build
 WORKDIR /bot
 COPY . .
-RUN CGO_ENABLED=0 go build -mod vendor -o unit-bot ./bin/bot
+RUN CGO_ENABLED=0 go build -o unit-bot ./bin/bot
 
 FROM alpine
 WORKDIR /bot
