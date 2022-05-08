@@ -12,6 +12,7 @@ require (
 )
 
 require (
+	github.com/gempir/go-twitch-irc/v3 v3.1.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/stretchr/testify v1.7.0 // indirect

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -82,14 +83,19 @@ func retrieveSupportedCurrencies() (*supportedCurrencies, error) {
 
 	resp, err := http.Get(currencyURL.String())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Error calling currency service: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("Unable to read response body: %w", err)
 	}
 
 	var response supportedCurrencies
-	decoder := json.NewDecoder(resp.Body)
-	err = decoder.Decode(&response)
+	err = json.Unmarshal(body, &response)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Unable to decode currencies response: %w\nBody: %v", err, string(body))
 	}
 
 	return &response, nil

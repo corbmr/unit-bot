@@ -12,6 +12,7 @@ import (
 	convert "unit-bot"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/gempir/go-twitch-irc/v3"
 )
 
 func main() {
@@ -19,28 +20,75 @@ func main() {
 		return os.Getenv("CURRENCY_API_KEY"), nil
 	}
 
-	token := os.Getenv("UNIT_BOT_TOKEN")
-	if len(token) == 0 {
+	discordToken, ok := os.LookupEnv("UNIT_BOT_TOKEN")
+	if !ok {
 		log.Fatalln("Discord token not found")
 	}
 
-	dg, err := discordgo.New("Bot " + token)
+	discordClient, err := discordgo.New("Bot " + discordToken)
 	if err != nil {
-		log.Fatalln("error creating discord session,", err)
+		log.Fatalln("error creating Discord session:", err)
 	}
 
-	dg.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages
-	dg.LogLevel = discordgo.LogWarning
-	dg.AddHandler(onMessageCreate)
+	discordClient.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages
+	discordClient.LogLevel = discordgo.LogWarning
+	discordClient.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
+		if m.Author.Bot {
+			return
+		}
+		processMessage(m.Content, func(reply string) error {
+			_, err := s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
+				Content: reply,
+				Reference: &discordgo.MessageReference{
+					MessageID: m.ID,
+					ChannelID: m.ChannelID,
+				},
+				AllowedMentions: &discordgo.MessageAllowedMentions{},
+			})
+			return err
+		})
+	})
 
-	err = dg.Open()
-	if err != nil {
-		log.Fatalln("error opening connection,", err)
+	log.Println("connecting to Discord...")
+	if err := discordClient.Open(); err != nil {
+		log.Fatalln("error connecting to Discord:", err)
 	}
+	log.Println("successfully connected to Discord")
 	defer func() {
-		dg.Close()
-		log.Println("Unit Bot has stopped running")
+		if err := discordClient.Close(); err != nil {
+			log.Println("error disconnecting from Discord:", err)
+		} else {
+			log.Println("successfully disconnected from Discord")
+		}
 	}()
+
+	twitchToken, ok := os.LookupEnv("TWITCH_TOKEN")
+	if !ok {
+		log.Fatalln("Twitch token not found")
+	}
+	twitchClient := twitch.NewClient("UnitBot", "oauth:"+twitchToken)
+	twitchClient.SetJoinRateLimiter(twitch.CreateVerifiedRateLimiter())
+	twitchClient.OnPrivateMessage(func(message twitch.PrivateMessage) {
+		processMessage(message.Message, func(reply string) error {
+			twitchClient.Reply(message.Channel, message.ID, reply)
+			return nil
+		})
+	})
+
+	log.Println("connecting to Twitch...")
+	if err := connectTwitch(twitchClient); err != nil {
+		log.Fatalln("error connecting to Twitch,", err)
+	}
+	log.Println("successfully connected to Twitch")
+	defer func() {
+		if err := twitchClient.Disconnect(); err != nil {
+			log.Println("error disconnecting from Twitch:", err)
+		} else {
+			log.Println("sucessfully disconnected from Twitch")
+		}
+	}()
+
+	joinTwitchChannels(twitchClient)
 
 	// Wait here until CTRL-C or other term signal is received.
 	log.Println("Unit Bot is now running")
@@ -48,13 +96,14 @@ func main() {
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, os.Interrupt, syscall.SIGTERM)
 	<-sc
+	log.Println("Stopping Unit Bot")
 }
 
 const (
 	convertPrefix = "!conv "
 )
 
-func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+func processMessage(message string, reply func(string) error) {
 	// Just in case
 	defer func() {
 		if err := recover(); err != nil {
@@ -62,23 +111,34 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		}
 	}()
 
-	if strings.HasPrefix(m.Content, convertPrefix) {
-		res := convert.Process(strings.TrimPrefix(m.Content, convertPrefix))
-		err := reply(s, m.Message, res)
+	if strings.HasPrefix(message, convertPrefix) {
+		res := convert.Process(strings.TrimPrefix(message, convertPrefix))
+		err := reply(res)
 		if err != nil {
 			log.Println("Unable to send message", err)
 		}
 	}
 }
 
-func reply(s *discordgo.Session, m *discordgo.Message, content string) error {
-	_, err := s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
-		Content: content,
-		Reference: &discordgo.MessageReference{
-			MessageID: m.ID,
-			ChannelID: m.ChannelID,
-		},
-		AllowedMentions: &discordgo.MessageAllowedMentions{},
+func connectTwitch(t *twitch.Client) error {
+	twitchConnected := make(chan error)
+	t.OnConnect(func() {
+		twitchConnected <- nil
 	})
-	return err
+
+	go func() {
+		twitchConnected <- t.Connect()
+	}()
+
+	return <-twitchConnected
+}
+
+func joinTwitchChannels(t *twitch.Client) {
+	f, err := os.ReadFile("channels.txt")
+	if err != nil {
+		log.Println("Unable to read channels.txt:", err)
+		return
+	}
+
+	t.Join(strings.Split(string(f), "\n")...)
 }
