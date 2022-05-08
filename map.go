@@ -15,6 +15,7 @@ var supportedUnits = map[UnitType][]string{
 	Furlong:      {"furlong", "furlongs"},
 	Lightyear:    {"ly", "lightyear", "lightyears"},
 	NauticalMile: {"nmi"},
+	Fathom:       {"fathom", "fathoms"},
 
 	// Mass
 	Gram:     {"g", "gram", "grams"},

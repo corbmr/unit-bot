@@ -33,6 +33,7 @@ var (
 	Furlong      = &LengthUnit{"furlongs", unit.Furlong, unit.Length.Furlongs}
 	Lightyear    = &LengthUnit{"ly", unit.LightYear, unit.Length.LightYears}
 	NauticalMile = &LengthUnit{"nautical mile", unit.NauticalMile, unit.Length.NauticalMiles}
+	Fathom       = &LengthUnit{"fathoms", unit.Fathom, unit.Length.Fathoms}
 
 	FootInch = &FootInchUnit{"feet+inches"}
 )
