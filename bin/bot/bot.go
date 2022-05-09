@@ -22,12 +22,12 @@ func main() {
 
 	discordToken, ok := os.LookupEnv("UNIT_BOT_TOKEN")
 	if !ok {
-		log.Fatalln("Discord token not found")
+		log.Panicln("Discord token not found")
 	}
 
 	discordClient, err := discordgo.New("Bot " + discordToken)
 	if err != nil {
-		log.Fatalln("error creating Discord session:", err)
+		log.Panicln("error creating Discord session:", err)
 	}
 
 	discordClient.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages
@@ -51,7 +51,7 @@ func main() {
 
 	log.Println("connecting to Discord...")
 	if err := discordClient.Open(); err != nil {
-		log.Fatalln("error connecting to Discord:", err)
+		log.Panicln("error connecting to Discord:", err)
 	}
 	log.Println("successfully connected to Discord")
 	defer func() {
@@ -64,7 +64,7 @@ func main() {
 
 	twitchToken, ok := os.LookupEnv("TWITCH_TOKEN")
 	if !ok {
-		log.Fatalln("Twitch token not found")
+		log.Panicln("Twitch token not found")
 	}
 	twitchClient := twitch.NewClient("UnitBot", "oauth:"+twitchToken)
 	twitchClient.SetJoinRateLimiter(twitch.CreateVerifiedRateLimiter())
@@ -77,7 +77,7 @@ func main() {
 
 	log.Println("connecting to Twitch...")
 	if err := connectTwitch(twitchClient); err != nil {
-		log.Fatalln("error connecting to Twitch,", err)
+		log.Panicln("error connecting to Twitch,", err)
 	}
 	log.Println("successfully connected to Twitch")
 	defer func() {
