@@ -1,7 +1,8 @@
 FROM golang:1.18 AS build
 WORKDIR /bot
 COPY . .
-RUN CGO_ENABLED=0 go build -o unit-bot ./bin/bot
+RUN go get
+RUN CGO_ENABLED=0 go build -o unit-bot ./bin/bot.go
 
 FROM alpine
 WORKDIR /bot
