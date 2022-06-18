@@ -53,8 +53,8 @@ type command struct {
 
 var (
 	unitToken     = p.Token(`[A-Za-z+/$€¥£]+`)
-	inches        = p.Parse2(p.Int, p.Atom(`"`).Opt(), func(i int, _ string) int { return i })
-	feet          = p.Parse2(p.Int, p.Atom(`'`), func(i int, _ string) int { return i })
+	inches        = p.Parse2(p.Int, p.RuneIn(`"”`).Opt(), func(i int, _ rune) int { return i })
+	feet          = p.Parse2(p.Int, p.RuneIn(`'’`), func(i int, _ rune) int { return i })
 	feetInches    = p.Parse2(feet, inches.Or(0), mapFeetInches)
 	simpleUnitVal = p.Parse2(p.Float, unitToken, mapSimpleUnit)
 	currency      = p.Parse2(p.RuneIn(`$€¥£`), p.Float, mapCurrency)
