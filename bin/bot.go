@@ -21,10 +21,33 @@ func main() {
 	}
 
 	discordToken, ok := os.LookupEnv("UNIT_BOT_TOKEN")
-	if !ok {
-		log.Panicln("Discord token not found")
+	if ok {
+		stopDiscord := startDiscord(discordToken)
+		defer stopDiscord()
+	} else {
+		log.Println("Discord token not found, skipping")
 	}
 
+	twitchToken, ok := os.LookupEnv("TWITCH_TOKEN")
+	if ok {
+		stopTwitch := startTwitch(twitchToken)
+		defer stopTwitch()
+	} else {
+		log.Println("Twitch token not found, skipping")
+	}
+
+	// Wait here until CTRL-C or other term signal is received.
+	log.Println("Unit Bot is now running")
+	log.Println("Press CTRL-C to stop")
+	sc := make(chan os.Signal, 1)
+	signal.Notify(sc, os.Interrupt, syscall.SIGTERM)
+	<-sc
+	log.Println("Stopping Unit Bot")
+}
+
+const convertPrefix = "!conv "
+
+func startDiscord(discordToken string) func() {
 	discordClient, err := discordgo.New("Bot " + discordToken)
 	if err != nil {
 		log.Panicln("error creating Discord session:", err)
@@ -54,18 +77,16 @@ func main() {
 		log.Panicln("error connecting to Discord:", err)
 	}
 	log.Println("successfully connected to Discord")
-	defer func() {
+	return func() {
 		if err := discordClient.Close(); err != nil {
 			log.Println("error disconnecting from Discord:", err)
 		} else {
 			log.Println("successfully disconnected from Discord")
 		}
-	}()
-
-	twitchToken, ok := os.LookupEnv("TWITCH_TOKEN")
-	if !ok {
-		log.Panicln("Twitch token not found")
 	}
+}
+
+func startTwitch(twitchToken string) func() {
 	twitchClient := twitch.NewClient("UnitBot", "oauth:"+twitchToken)
 	twitchClient.SetJoinRateLimiter(twitch.CreateVerifiedRateLimiter())
 	twitchClient.OnPrivateMessage(func(message twitch.PrivateMessage) {
@@ -80,28 +101,17 @@ func main() {
 		log.Panicln("error connecting to Twitch,", err)
 	}
 	log.Println("successfully connected to Twitch")
-	defer func() {
-		if err := twitchClient.Disconnect(); err != nil {
-			log.Println("error disconnecting from Twitch:", err)
-		} else {
-			log.Println("sucessfully disconnected from Twitch")
-		}
-	}()
 
 	joinTwitchChannels(twitchClient)
 
-	// Wait here until CTRL-C or other term signal is received.
-	log.Println("Unit Bot is now running")
-	log.Println("Press CTRL-C to stop")
-	sc := make(chan os.Signal, 1)
-	signal.Notify(sc, os.Interrupt, syscall.SIGTERM)
-	<-sc
-	log.Println("Stopping Unit Bot")
+	return func() {
+		if err := twitchClient.Disconnect(); err != nil {
+			log.Println("error disconnecting from Twitch:", err)
+		} else {
+			log.Println("successfully disconnected from Twitch")
+		}
+	}
 }
-
-const (
-	convertPrefix = "!conv "
-)
 
 func processMessage(message string, reply func(string) error) {
 	// Just in case
