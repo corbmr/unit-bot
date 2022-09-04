@@ -41,6 +41,61 @@ func Process(expr string) string {
 	return fmt.Sprintf("%s = %s", from, to)
 }
 
+func Convert(value float64, from, to string) string {
+	fromUnit, ok := ParseUnit(from)
+	if !ok {
+		return fmt.Sprintf("Invalid unit %s", from)
+	}
+
+	fromValue := fromUnit.FromFloat(value)
+
+	toUnit, ok := ParseUnit(to)
+	if !ok {
+		return fmt.Sprintf("Invalid unit %s", to)
+	}
+
+	toValue, err := fromValue.Convert(toUnit)
+	if err != nil {
+		return err.Error()
+	}
+
+	return fmt.Sprintf("%s = %s", fromValue, toValue)
+}
+
+func Convert2(from, to string) string {
+	cmd, _, ok := fromExpr([]byte(from))
+	if !ok {
+		log.Printf("Invalid command: `%v` %v\n", from, cmd)
+		return "Usage: !conv [amount][from-unit] to [to-unit]"
+	}
+
+	var fromValue UnitVal
+	switch uv := cmd.(type) {
+	case unparsedUnitVal:
+		fromUnit, ok := ParseUnit(uv.unit)
+		if !ok {
+			return fmt.Sprintf("Invalid unit %s", uv.unit)
+		}
+
+		fromValue = fromUnit.FromFloat(uv.val)
+
+	case UnitVal:
+		fromValue = uv
+	}
+
+	toUnit, ok := ParseUnit(to)
+	if !ok {
+		return fmt.Sprintf("Invalid unit %s", to)
+	}
+
+	toValue, err := fromValue.Convert(toUnit)
+	if err != nil {
+		return err.Error()
+	}
+
+	return fmt.Sprintf("%s = %s", fromValue, toValue)
+}
+
 type unparsedUnitVal struct {
 	val  float64
 	unit string
