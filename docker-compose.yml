@@ -4,5 +4,7 @@ services:
     build: .
     environment:
       - UNIT_BOT_TOKEN
+      - UNIT_BOT_APPLICATION_ID
+      - UNIT_BOT_COMMAND_GUILD_ID
       - CURRENCY_API_KEY
       - TWITCH_TOKEN
