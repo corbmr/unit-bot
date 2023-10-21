@@ -12,7 +12,6 @@ import (
 	convert "unit-bot"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/gempir/go-twitch-irc/v3"
 )
 
 var applicationId, guildId string
@@ -41,14 +40,6 @@ func main() {
 		defer stopDiscord()
 	} else {
 		log.Println("Discord token not found, skipping")
-	}
-
-	twitchToken, ok := os.LookupEnv("TWITCH_TOKEN")
-	if ok {
-		stopTwitch := startTwitch(twitchToken)
-		defer stopTwitch()
-	} else {
-		log.Println("Twitch token not found, skipping")
 	}
 
 	// Wait here until CTRL-C or other term signal is received.
@@ -222,33 +213,6 @@ func handleConvert2Interaction(s *discordgo.Session, i *discordgo.InteractionCre
 	})
 }
 
-func startTwitch(twitchToken string) func() {
-	twitchClient := twitch.NewClient("UnitBot", "oauth:"+twitchToken)
-	twitchClient.SetJoinRateLimiter(twitch.CreateVerifiedRateLimiter())
-	twitchClient.OnPrivateMessage(func(message twitch.PrivateMessage) {
-		processMessage(message.Message, func(reply string) error {
-			twitchClient.Reply(message.Channel, message.ID, reply)
-			return nil
-		})
-	})
-
-	log.Println("connecting to Twitch...")
-	if err := connectTwitch(twitchClient); err != nil {
-		log.Panicln("error connecting to Twitch,", err)
-	}
-	log.Println("successfully connected to Twitch")
-
-	joinTwitchChannels(twitchClient)
-
-	return func() {
-		if err := twitchClient.Disconnect(); err != nil {
-			log.Println("error disconnecting from Twitch:", err)
-		} else {
-			log.Println("successfully disconnected from Twitch")
-		}
-	}
-}
-
 func processMessage(message string, reply func(string) error) {
 	// Just in case
 	defer func() {
@@ -264,27 +228,4 @@ func processMessage(message string, reply func(string) error) {
 			log.Println("Unable to send message", err)
 		}
 	}
-}
-
-func connectTwitch(t *twitch.Client) error {
-	twitchConnected := make(chan error)
-	t.OnConnect(func() {
-		twitchConnected <- nil
-	})
-
-	go func() {
-		twitchConnected <- t.Connect()
-	}()
-
-	return <-twitchConnected
-}
-
-func joinTwitchChannels(t *twitch.Client) {
-	f, err := os.ReadFile("channels.txt")
-	if err != nil {
-		log.Println("Unable to read channels.txt:", err)
-		return
-	}
-
-	t.Join(strings.Split(string(f), "\n")...)
 }

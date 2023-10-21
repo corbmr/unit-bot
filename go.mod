@@ -4,7 +4,6 @@ go 1.18
 
 require (
 	github.com/bwmarrin/discordgo v0.27.1
-	github.com/gempir/go-twitch-irc/v3 v3.3.0
 	github.com/martinlindhe/unit v0.0.0-20230420213220-4adfd7d0a0d6
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 )
