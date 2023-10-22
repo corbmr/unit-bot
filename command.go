@@ -2,7 +2,7 @@ package convert
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 
 	p "unit-bot/parser"
 )
@@ -10,7 +10,7 @@ import (
 func Process(expr string) string {
 	cmd, _, ok := convertExpr([]byte(expr))
 	if !ok {
-		log.Printf("Invalid command: `%v` %v\n", expr, cmd)
+		slog.Info("Invalid command: `%v` %v\n", expr, cmd)
 		return "Usage: !conv [amount][from-unit] to [to-unit]"
 	}
 
@@ -44,7 +44,7 @@ func Process(expr string) string {
 func Convert(from, to string) string {
 	cmd, _, ok := fromExpr([]byte(from))
 	if !ok {
-		log.Printf("Invalid command: `%v` %v\n", from, cmd)
+		slog.Info("Invalid command: `%v` %v\n", from, cmd)
 		return "Usage: !conv [amount][from-unit] to [to-unit]"
 	}
 

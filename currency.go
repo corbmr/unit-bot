@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"sync"
@@ -51,22 +51,22 @@ type supportedCurrencies struct {
 
 func loadCurrencies() {
 	if currencyApiKey == "" {
-		log.Println("Currency API key was not set. Currency conversion is not available")
+		slog.Info("Currency API key was not set. Currency conversion is not available")
 		return
 	}
-	log.Println("Loading currencies..")
+	slog.Info("Loading currencies..")
 
 	currencies, err := retrieveSupportedCurrencies()
 	if err != nil {
-		log.Println("Error loading currencies:", err)
+		slog.Error("Error loading currencies:", err)
 		return
 	}
 
-	log.Println("Supported currencies:")
+	slog.Info("Supported currencies:")
 	unitLock.Lock()
 	defer unitLock.Unlock()
 	for _, curr := range currencies.Results {
-		log.Println(curr.ID, curr.CurrencyName)
+		slog.Info(curr.ID, curr.CurrencyName)
 		unit := &CurrencyUnit{curr.ID}
 		supportedUnits[unit] = append(supportedUnits[unit], curr.ID)
 		if aliases, ok := extraAliases[unit.id]; ok {
@@ -75,7 +75,7 @@ func loadCurrencies() {
 	}
 	refreshUnitMap()
 
-	log.Println("Currencies loaded")
+	slog.Info("Currencies loaded")
 }
 
 func retrieveSupportedCurrencies() (*supportedCurrencies, error) {
@@ -135,7 +135,7 @@ func (cv CurrencyVal) Convert(to UnitType) (UnitVal, error) {
 		rate, err := getRate(cv.U, to)
 		if err != nil {
 			if err != ErrorCurrencyService {
-				log.Println("Error calling currency service,", err)
+				slog.Error("Error calling currency service,", err)
 			}
 			return nil, ErrorCurrencyService
 		}
@@ -148,10 +148,10 @@ func getRate(from, to *CurrencyUnit) (float64, error) {
 	op := from.id + "_" + to.id
 	rate, ok := currencyCache.Get(op)
 	if ok {
-		log.Println("Cache hit:", op)
+		slog.Debug("Cache hit:", op)
 		return rate.(float64), nil
 	} else {
-		log.Println("Cache miss:", op)
+		slog.Debug("Cache miss:", op)
 		r, err := getRateNoCache(op)
 		if err != nil {
 			return 0, err

@@ -3,7 +3,7 @@
 package main
 
 import (
-	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"strings"
@@ -29,16 +29,16 @@ func main() {
 		stopDiscord := startDiscord(discordToken)
 		defer stopDiscord()
 	} else {
-		log.Println("Discord token not found, skipping")
+		slog.Warn("Discord token not found, skipping")
 	}
 
 	// Wait here until CTRL-C or other term signal is received.
-	log.Println("Unit Bot is now running")
-	log.Println("Press CTRL-C to stop")
+	slog.Info("Unit Bot is now running")
+	slog.Info("Press CTRL-C to stop")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, os.Interrupt, syscall.SIGTERM)
 	<-sc
-	log.Println("Stopping Unit Bot")
+	slog.Info("Stopping Unit Bot")
 }
 
 const convertPrefix = "!conv "
@@ -46,7 +46,8 @@ const convertPrefix = "!conv "
 func startDiscord(discordToken string) func() {
 	discordClient, err := discordgo.New("Bot " + discordToken)
 	if err != nil {
-		log.Panicln("error creating Discord session:", err)
+		slog.Error("error creating Discord session:", err)
+		panic("error creating Discord session")
 	}
 
 	discordClient.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages
@@ -77,20 +78,21 @@ func startDiscord(discordToken string) func() {
 		if handler, ok := commandHandlerMap[cmd]; ok {
 			handler(discord, i)
 		} else {
-			log.Println("unknown command:", cmd)
+			slog.Warn("unknown command:", cmd)
 		}
 	})
 
-	log.Println("connecting to Discord...")
+	slog.Info("connecting to Discord...")
 	if err := discordClient.Open(); err != nil {
-		log.Panicln("error connecting to Discord:", err)
+		slog.Error("error connecting to Discord:", err)
+		panic("error connecting to Discord")
 	}
-	log.Println("successfully connected to Discord")
+	slog.Info("successfully connected to Discord")
 	return func() {
 		if err := discordClient.Close(); err != nil {
-			log.Println("error disconnecting from Discord:", err)
+			slog.Info("error disconnecting from Discord:", err)
 		} else {
-			log.Println("successfully disconnected from Discord")
+			slog.Info("successfully disconnected from Discord")
 		}
 	}
 }
@@ -104,11 +106,11 @@ func createCommand(
 ) {
 	cmd, err := discord.ApplicationCommandCreate(applicationId, commandGuildId, command)
 	if err != nil {
-		log.Println("error creating command:", command.Name, err)
+		slog.Warn("error creating command:", command.Name, err)
 		return
 	}
 
-	log.Printf("application command created: %v id: %v\n", cmd.Name, cmd.ID)
+	slog.Info("application command created", "Name", cmd.Name, "Id", cmd.ID)
 	commandHandlerMap[command.Name] = handler
 }
 
@@ -121,7 +123,7 @@ func handleConvertInteraction(discord *discordgo.Session, i *discordgo.Interacti
 		case "to-unit":
 			toUnit = o.StringValue()
 		default:
-			log.Println("unexpected command option:", o.Name)
+			slog.Warn("unexpected command option:", o.Name)
 		}
 	}
 
@@ -139,7 +141,7 @@ func processMessage(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	// Just in case
 	defer func() {
 		if err := recover(); err != nil {
-			log.Println("Function panicked:", err)
+			slog.Error("Function panicked:", err)
 		}
 	}()
 
@@ -163,6 +165,6 @@ func processMessage(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		AllowedMentions: &discordgo.MessageAllowedMentions{},
 	})
 	if err != nil {
-		log.Println("Unable to send message", err)
+		slog.Info("Unable to send message", err)
 	}
 }
