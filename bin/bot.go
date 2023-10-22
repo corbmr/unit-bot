@@ -14,19 +14,11 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-var applicationId, guildId string
+var applicationId, commandGuildId string
 
 func init() {
-	applicationId = getenvOrPanic("UNIT_BOT_APPLICATION_ID")
-	guildId = getenvOrPanic("UNIT_BOT_COMMAND_GUILD_ID")
-}
-
-func getenvOrPanic(env string) string {
-	v := os.Getenv(env)
-	if len(v) == 0 {
-		log.Panicln("environment variable expected:", env)
-	}
-	return v
+	applicationId = os.Getenv("UNIT_BOT_APPLICATION_ID")
+	commandGuildId = os.Getenv("UNIT_BOT_COMMAND_GUILD_ID")
 }
 
 func main() {
@@ -59,22 +51,7 @@ func startDiscord(discordToken string) func() {
 
 	discordClient.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages
 	discordClient.LogLevel = discordgo.LogWarning
-	discordClient.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
-		if m.Author.Bot {
-			return
-		}
-		processMessage(m.Content, func(reply string) error {
-			_, err := s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
-				Content: reply,
-				Reference: &discordgo.MessageReference{
-					MessageID: m.ID,
-					ChannelID: m.ChannelID,
-				},
-				AllowedMentions: &discordgo.MessageAllowedMentions{},
-			})
-			return err
-		})
-	})
+	discordClient.AddHandler(processMessage)
 
 	createCommand(discordClient, &discordgo.ApplicationCommand{
 		Name:        "convert",
@@ -95,10 +72,10 @@ func startDiscord(discordToken string) func() {
 		},
 	}, handleConvertInteraction)
 
-	discordClient.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	discordClient.AddHandler(func(discord *discordgo.Session, i *discordgo.InteractionCreate) {
 		cmd := i.ApplicationCommandData().Name
 		if handler, ok := commandHandlerMap[cmd]; ok {
-			handler(s, i)
+			handler(discord, i)
 		} else {
 			log.Println("unknown command:", cmd)
 		}
@@ -121,13 +98,13 @@ func startDiscord(discordToken string) func() {
 var commandHandlerMap = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
 
 func createCommand(
-	s *discordgo.Session,
+	discord *discordgo.Session,
 	command *discordgo.ApplicationCommand,
 	handler func(s *discordgo.Session, i *discordgo.InteractionCreate),
 ) {
-	cmd, err := s.ApplicationCommandCreate(applicationId, guildId, command)
+	cmd, err := discord.ApplicationCommandCreate(applicationId, commandGuildId, command)
 	if err != nil {
-		log.Println("error creating command:", command.Name)
+		log.Println("error creating command:", command.Name, err)
 		return
 	}
 
@@ -135,7 +112,7 @@ func createCommand(
 	commandHandlerMap[command.Name] = handler
 }
 
-func handleConvertInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func handleConvertInteraction(discord *discordgo.Session, i *discordgo.InteractionCreate) {
 	var fromValue, toUnit string
 	for _, o := range i.ApplicationCommandData().Options {
 		switch o.Name {
@@ -150,7 +127,7 @@ func handleConvertInteraction(s *discordgo.Session, i *discordgo.InteractionCrea
 
 	convertResult := convert.Convert(fromValue, toUnit)
 
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	discord.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Content: convertResult,
@@ -158,7 +135,7 @@ func handleConvertInteraction(s *discordgo.Session, i *discordgo.InteractionCrea
 	})
 }
 
-func processMessage(message string, reply func(string) error) {
+func processMessage(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	// Just in case
 	defer func() {
 		if err := recover(); err != nil {
@@ -166,11 +143,26 @@ func processMessage(message string, reply func(string) error) {
 		}
 	}()
 
-	if strings.HasPrefix(message, convertPrefix) {
-		res := convert.Process(strings.TrimPrefix(message, convertPrefix))
-		err := reply(res)
-		if err != nil {
-			log.Println("Unable to send message", err)
-		}
+	if m.Author.Bot {
+		return
+	}
+
+	message := m.Content
+	if !strings.HasPrefix(message, convertPrefix) {
+		return
+	}
+
+	reply := convert.Process(strings.TrimPrefix(message, convertPrefix))
+
+	_, err := discord.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
+		Content: reply,
+		Reference: &discordgo.MessageReference{
+			MessageID: m.ID,
+			ChannelID: m.ChannelID,
+		},
+		AllowedMentions: &discordgo.MessageAllowedMentions{},
+	})
+	if err != nil {
+		log.Println("Unable to send message", err)
 	}
 }
