@@ -12,25 +12,23 @@ type LengthUnit struct {
 	SimpleUnit[unit.Length]
 }
 
-type LengthVal struct {
-	SimpleUnitValue[unit.Length]
-}
+type LengthVal struct{ SimpleUnitValue[unit.Length] }
 
 // Length units
 var (
-	Meter        = &LengthUnit{SimpleUnit: SimpleUnit[unit.Length]{"m", from(unit.Meter), unit.Length.Meters}}
-	Kilometer    = &LengthUnit{SimpleUnit: SimpleUnit[unit.Length]{"km", from(unit.Kilometer), unit.Length.Kilometers}}
-	Millimeter   = &LengthUnit{SimpleUnit: SimpleUnit[unit.Length]{"mm", from(unit.Millimeter), unit.Length.Millimeters}}
-	Centimeter   = &LengthUnit{SimpleUnit: SimpleUnit[unit.Length]{"cm", from(unit.Centimeter), unit.Length.Centimeters}}
-	Nanometer    = &LengthUnit{SimpleUnit: SimpleUnit[unit.Length]{"nm", from(unit.Nanometer), unit.Length.Nanometers}}
-	Inch         = &LengthUnit{SimpleUnit: SimpleUnit[unit.Length]{"in", from(unit.Inch), unit.Length.Inches}}
-	Foot         = &LengthUnit{SimpleUnit: SimpleUnit[unit.Length]{"ft", from(unit.Foot), unit.Length.Feet}}
-	Yard         = &LengthUnit{SimpleUnit: SimpleUnit[unit.Length]{"yd", from(unit.Yard), unit.Length.Yards}}
-	Mile         = &LengthUnit{SimpleUnit: SimpleUnit[unit.Length]{"miles", from(unit.Mile), unit.Length.Miles}}
-	Furlong      = &LengthUnit{SimpleUnit: SimpleUnit[unit.Length]{"furlongs", from(unit.Furlong), unit.Length.Furlongs}}
-	Lightyear    = &LengthUnit{SimpleUnit: SimpleUnit[unit.Length]{"ly", from(unit.LightYear), unit.Length.LightYears}}
-	NauticalMile = &LengthUnit{SimpleUnit: SimpleUnit[unit.Length]{"nautical mile", from(unit.NauticalMile), unit.Length.NauticalMiles}}
-	Fathom       = &LengthUnit{SimpleUnit: SimpleUnit[unit.Length]{"fathoms", from(unit.Fathom), unit.Length.Fathoms}}
+	Meter        = &LengthUnit{SimpleUnit[unit.Length]{UnitDimensionLength, "m", from(unit.Meter), unit.Length.Meters}}
+	Kilometer    = &LengthUnit{SimpleUnit[unit.Length]{UnitDimensionLength, "km", from(unit.Kilometer), unit.Length.Kilometers}}
+	Millimeter   = &LengthUnit{SimpleUnit[unit.Length]{UnitDimensionLength, "mm", from(unit.Millimeter), unit.Length.Millimeters}}
+	Centimeter   = &LengthUnit{SimpleUnit[unit.Length]{UnitDimensionLength, "cm", from(unit.Centimeter), unit.Length.Centimeters}}
+	Nanometer    = &LengthUnit{SimpleUnit[unit.Length]{UnitDimensionLength, "nm", from(unit.Nanometer), unit.Length.Nanometers}}
+	Inch         = &LengthUnit{SimpleUnit[unit.Length]{UnitDimensionLength, "in", from(unit.Inch), unit.Length.Inches}}
+	Foot         = &LengthUnit{SimpleUnit[unit.Length]{UnitDimensionLength, "ft", from(unit.Foot), unit.Length.Feet}}
+	Yard         = &LengthUnit{SimpleUnit[unit.Length]{UnitDimensionLength, "yd", from(unit.Yard), unit.Length.Yards}}
+	Mile         = &LengthUnit{SimpleUnit[unit.Length]{UnitDimensionLength, "miles", from(unit.Mile), unit.Length.Miles}}
+	Furlong      = &LengthUnit{SimpleUnit[unit.Length]{UnitDimensionLength, "furlongs", from(unit.Furlong), unit.Length.Furlongs}}
+	Lightyear    = &LengthUnit{SimpleUnit[unit.Length]{UnitDimensionLength, "ly", from(unit.LightYear), unit.Length.LightYears}}
+	NauticalMile = &LengthUnit{SimpleUnit[unit.Length]{UnitDimensionLength, "nautical mile", from(unit.NauticalMile), unit.Length.NauticalMiles}}
+	Fathom       = &LengthUnit{SimpleUnit[unit.Length]{UnitDimensionLength, "fathoms", from(unit.Fathom), unit.Length.Fathoms}}
 
 	FootInch = &FootInchUnit{}
 )
@@ -71,6 +69,10 @@ func (FootInchUnit) String() string {
 	return "feet + inches"
 }
 
+func (FootInchUnit) Dimension() UnitDimension {
+	return UnitDimensionLength
+}
+
 func (val FootInchVal) String() string {
 	if val.Inches == 0 {
 		return Foot.FromFloat(val.Feet).String()
@@ -90,4 +92,8 @@ func (val FootInchVal) Convert(to UnitType) (UnitVal, error) {
 	default:
 		return nil, ErrorConversion{FootInch, to}
 	}
+}
+
+func (FootInchVal) Unit() UnitType {
+	return FootInch
 }

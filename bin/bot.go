@@ -18,6 +18,13 @@ import (
 var applicationId, commandGuildId string
 
 func init() {
+	lvl := new(slog.LevelVar)
+	lvl.Set(slog.LevelDebug)
+
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+		Level: lvl,
+	})))
+
 	applicationId = os.Getenv("UNIT_BOT_APPLICATION_ID")
 	commandGuildId = os.Getenv("UNIT_BOT_COMMAND_GUILD_ID")
 }
@@ -76,10 +83,11 @@ func startDiscord(discordToken string) func() {
 				Required:    true,
 			},
 			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "to-unit",
-				Description: "unit to convert to",
-				Required:    true,
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "to-unit",
+				Description:  "unit to convert to",
+				Required:     true,
+				Autocomplete: true,
 			},
 		},
 	}, handleConvertInteraction)
@@ -163,6 +171,41 @@ func handleConvertInteraction(discord *discordgo.Session, i *discordgo.Interacti
 			},
 		})
 
+	case discordgo.InteractionApplicationCommandAutocomplete:
+		var fromValue, toUnit, focused string
+		for _, o := range i.ApplicationCommandData().Options {
+			if o.Focused {
+				focused = o.Name
+			}
+			switch o.Name {
+			case "from-value":
+				fromValue = o.StringValue()
+			case "to-unit":
+				toUnit = o.StringValue()
+			default:
+				slog.Warn("unexpected command option", "Option", o.Name)
+			}
+		}
+
+		autocompletes := convert.Autocomplete(fromValue, toUnit)
+
+		slog.Info("Received autocomplete interaction",
+			"from", fromValue, "to", toUnit, "focused", focused, "autocompletes", autocompletes)
+
+		optionChoices := []*discordgo.ApplicationCommandOptionChoice{}
+		for _, option := range autocompletes {
+			optionChoices = append(optionChoices, &discordgo.ApplicationCommandOptionChoice{
+				Name:  option,
+				Value: option,
+			})
+		}
+
+		discord.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+			Data: &discordgo.InteractionResponseData{
+				Choices: optionChoices,
+			},
+		})
 	default:
 		slog.Warn("unexpected interaction type", "Type", i.Type)
 	}

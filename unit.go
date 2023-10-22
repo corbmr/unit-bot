@@ -2,29 +2,37 @@ package convert
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 )
 
 var (
-	unitMap  map[string]UnitType
-	unitLock sync.RWMutex
+	unitAliasMap     map[string]UnitType
+	unitDimensionMap map[UnitDimension][]UnitType
+	unitLock         sync.RWMutex
 )
 
 func init() {
-	unitMap = make(map[string]UnitType)
-	refreshUnitMap()
+	unitAliasMap = make(map[string]UnitType)
+	unitDimensionMap = make(map[UnitDimension][]UnitType)
+	refreshUnitMaps()
 }
 
-func refreshUnitMap() {
+func refreshUnitMaps() {
 	for unit, aliases := range supportedUnits {
 		for _, alias := range aliases {
 			alias = strings.ToLower(alias)
-			if _, ok := unitMap[alias]; !ok {
-				unitMap[alias] = unit
+			if _, ok := unitAliasMap[alias]; !ok {
+				unitAliasMap[alias] = unit
 			}
 		}
+		dim := unit.Dimension()
+		unitDimensionMap[dim] = append(unitDimensionMap[dim], unit)
 	}
+
+	slog.Info("Refreshed unit maps",
+		"unitAliasMap", unitAliasMap, "unitDimensionMap", unitDimensionMap)
 }
 
 // LookupUnit parses a UnitType.
@@ -33,25 +41,40 @@ func LookupUnit(s string) (UnitType, bool) {
 	s = strings.ToLower(s)
 	unitLock.RLock()
 	defer unitLock.RUnlock()
-	u, ok := unitMap[s]
+	u, ok := unitAliasMap[s]
 	if !ok {
 		unitLock.RUnlock()
 		currencyOnce.Do(loadCurrencies)
 		unitLock.RLock()
-		u, ok = unitMap[s]
+		u, ok = unitAliasMap[s]
 	}
 	return u, ok
 }
 
+type UnitDimension int
+
+const (
+	UnitDimensionNone UnitDimension = iota
+	UnitDimensionLength
+	UnitDimensionMass
+	UnitDimensionSpeed
+	UnitDimensionDuration
+	UnitDimensionTemperature
+	UnitDimensionVolume
+	UnitDimensionCurrency
+)
+
 // UnitType represent a single type of unit
 type UnitType interface {
 	fmt.Stringer
+	Dimension() UnitDimension
 	FromFloat(float64) UnitVal
 }
 
 // UnitVal is a value with unit that can be converted to another unit
 type UnitVal interface {
 	fmt.Stringer
+	Unit() UnitType
 	Convert(to UnitType) (UnitVal, error)
 }
 
@@ -75,6 +98,7 @@ func from[U ~float64](base U) func(float64) U {
 }
 
 type SimpleUnit[U ~float64] struct {
+	dimension UnitDimension
 	name      string
 	fromFloat func(float64) U
 	toFloat   func(U) float64
@@ -85,6 +109,10 @@ func (u *SimpleUnit[U]) FromFloat(f float64) UnitVal {
 		value: u.fromFloat(f),
 		unit:  u,
 	}
+}
+
+func (u *SimpleUnit[U]) Dimension() UnitDimension {
+	return u.dimension
 }
 
 func (u *SimpleUnit[U]) String() string {
@@ -102,6 +130,10 @@ func (v SimpleUnitValue[U]) Convert(to UnitType) (UnitVal, error) {
 		return v, nil
 	}
 	return nil, ErrorConversion{v.unit, to}
+}
+
+func (v SimpleUnitValue[U]) Unit() UnitType {
+	return v.unit
 }
 
 func (v SimpleUnitValue[U]) String() string {

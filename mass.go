@@ -7,8 +7,8 @@ type MassUnit = SimpleUnit[unit.Mass]
 
 // Mass units
 var (
-	Gram     = &MassUnit{"g", from(unit.Gram), unit.Mass.Grams}
-	Kilogram = &MassUnit{"kg", from(unit.Kilogram), unit.Mass.Kilograms}
-	Pound    = &MassUnit{"lbs", from(unit.AvoirdupoisPound), unit.Mass.AvoirdupoisPounds}
-	Stone    = &MassUnit{"stones", from(unit.UkStone), unit.Mass.UkStones}
+	Gram     = &MassUnit{UnitDimensionMass, "g", from(unit.Gram), unit.Mass.Grams}
+	Kilogram = &MassUnit{UnitDimensionMass, "kg", from(unit.Kilogram), unit.Mass.Kilograms}
+	Pound    = &MassUnit{UnitDimensionMass, "lbs", from(unit.AvoirdupoisPound), unit.Mass.AvoirdupoisPounds}
+	Stone    = &MassUnit{UnitDimensionMass, "stones", from(unit.UkStone), unit.Mass.UkStones}
 )

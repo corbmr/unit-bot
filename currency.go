@@ -73,7 +73,7 @@ func loadCurrencies() {
 			supportedUnits[unit] = append(supportedUnits[unit], aliases...)
 		}
 	}
-	refreshUnitMap()
+	refreshUnitMaps()
 
 	slog.Info("Currencies loaded")
 }
@@ -119,6 +119,10 @@ func (cu *CurrencyUnit) FromFloat(f float64) UnitVal {
 	return CurrencyVal{f, cu}
 }
 
+func (cu *CurrencyUnit) Dimension() UnitDimension {
+	return UnitDimensionCurrency
+}
+
 // CurrencyVal is a currency value with unit
 type CurrencyVal struct {
 	V float64
@@ -142,6 +146,10 @@ func (cv CurrencyVal) Convert(to UnitType) (UnitVal, error) {
 		return CurrencyVal{cv.V * rate, to}, nil
 	}
 	return nil, ErrorConversion{cv.U, to}
+}
+
+func (cv CurrencyVal) Unit() UnitType {
+	return cv.U
 }
 
 func getRate(from, to *CurrencyUnit) (float64, error) {

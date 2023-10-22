@@ -3,6 +3,7 @@ package convert
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 
 	p "unit-bot/parser"
 )
@@ -32,6 +33,8 @@ func Process(expr string) string {
 	if !ok {
 		return fmt.Sprintf("Invalid unit %s", cmd.to)
 	}
+
+	slog.Debug("converting", "from", from, "to", toUnit)
 
 	to, err := from.Convert(toUnit)
 	if err != nil {
@@ -67,12 +70,51 @@ func Convert(from, to string) string {
 		return fmt.Sprintf("Invalid unit %s", to)
 	}
 
+	slog.Debug("converting", "from", debug(fromValue), "to", debug(toUnit))
+
 	toValue, err := fromValue.Convert(toUnit)
 	if err != nil {
+		slog.Error("Cannot convert",
+			"fromValue", debug(fromValue), "toUnit", debug(toUnit), "err", err)
 		return err.Error()
 	}
 
 	return fmt.Sprintf("%s = %s", fromValue, toValue)
+}
+
+func debug(v any) string {
+	return fmt.Sprintf("%#v", v)
+}
+
+func Autocomplete(from, to string) []string {
+	cmd, _, ok := fromExpr([]byte(from))
+	if !ok {
+		slog.Info("Invalid command: `%v` %v\n", from, cmd)
+		return nil
+	}
+
+	var fromValue UnitVal
+	switch uv := cmd.(type) {
+	case unparsedUnitVal:
+		fromUnit, ok := LookupUnit(uv.unit)
+		if !ok {
+			return nil
+		}
+
+		fromValue = fromUnit.FromFloat(uv.val)
+
+	case UnitVal:
+		fromValue = uv
+	}
+
+	options := []string{}
+	for _, unit := range unitDimensionMap[fromValue.Unit().Dimension()] {
+		if strings.HasPrefix(unit.String(), to) {
+			options = append(options, unit.String())
+		}
+	}
+
+	return options
 }
 
 type unparsedUnitVal struct {
