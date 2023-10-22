@@ -107,8 +107,8 @@ type SimpleUnit[U ~float64] struct {
 
 func (u *SimpleUnit[U]) FromFloat(f float64) UnitVal {
 	return SimpleUnitValue[U]{
-		V: u.fromFloat(f),
-		U: u,
+		value: u.fromFloat(f),
+		unit:  u,
 	}
 }
 
@@ -117,18 +117,18 @@ func (u *SimpleUnit[U]) String() string {
 }
 
 type SimpleUnitValue[U ~float64] struct {
-	V U
-	U *SimpleUnit[U]
+	value U
+	unit  *SimpleUnit[U]
 }
 
 func (v SimpleUnitValue[U]) Convert(to UnitType) (UnitVal, error) {
 	if to, ok := to.(*SimpleUnit[U]); ok {
-		v.U = to
+		v.unit = to
 		return v, nil
 	}
-	return nil, ErrorConversion{v.U, to}
+	return nil, ErrorConversion{v.unit, to}
 }
 
 func (v SimpleUnitValue[U]) String() string {
-	return simpleUnitString(v.U.toFloat(v.V), v.U)
+	return simpleUnitString(v.unit.toFloat(v.value), v.unit)
 }

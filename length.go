@@ -45,11 +45,11 @@ func (lv LengthVal) Convert(to UnitType) (UnitVal, error) {
 	case *LengthUnit:
 		return lv.SimpleUnitValue.Convert(to)
 	case *FootInchUnit:
-		feet, fraction := math.Modf(lv.V.Feet())
+		feet, fraction := math.Modf(lv.value.Feet())
 		inches := (unit.Length(fraction) * unit.Foot).Inches()
 		return FootInchVal{feet, inches}, nil
 	default:
-		return nil, ErrorConversion{lv.U, to}
+		return nil, ErrorConversion{lv.unit, to}
 	}
 }
 
