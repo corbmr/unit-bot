@@ -3,43 +3,15 @@ package convert
 import "github.com/martinlindhe/unit"
 
 // DurationUnit is a unit of time
-type DurationUnit struct {
-	unitCommon
-	time    unit.Duration
-	toFloat func(unit.Duration) float64
-}
-
-// FromFloat implements SimpleUnit
-func (du *DurationUnit) FromFloat(f float64) UnitVal {
-	return DurationVal{unit.Duration(f) * du.time, du}
-}
+type DurationUnit = SimpleUnit[unit.Duration]
 
 // Time units
 var (
-	Second = &DurationUnit{"s", unit.Second, unit.Duration.Seconds}
-	Minute = &DurationUnit{"min", unit.Minute, unit.Duration.Minutes}
-	Hour   = &DurationUnit{"hr", unit.Hour, unit.Duration.Hours}
-	Day    = &DurationUnit{"days", unit.Day, unit.Duration.Days}
-	Week   = &DurationUnit{"weeks", unit.Week, unit.Duration.Weeks}
-	Month  = &DurationUnit{"months", unit.ThirtyDayMonth, unit.Duration.ThirtyDayMonths}
-	Year   = &DurationUnit{"years", unit.JulianYear, unit.Duration.JulianYears}
+	Second = &DurationUnit{"s", from(unit.Second), unit.Duration.Seconds}
+	Minute = &DurationUnit{"min", from(unit.Minute), unit.Duration.Minutes}
+	Hour   = &DurationUnit{"hr", from(unit.Hour), unit.Duration.Hours}
+	Day    = &DurationUnit{"days", from(unit.Day), unit.Duration.Days}
+	Week   = &DurationUnit{"weeks", from(unit.Week), unit.Duration.Weeks}
+	Month  = &DurationUnit{"months", from(unit.ThirtyDayMonth), unit.Duration.ThirtyDayMonths}
+	Year   = &DurationUnit{"years", from(unit.JulianYear), unit.Duration.JulianYears}
 )
-
-// DurationVal is a time value with unit
-type DurationVal struct {
-	V unit.Duration
-	U *DurationUnit
-}
-
-func (dv DurationVal) String() string {
-	return simpleUnitString(dv.U.toFloat(dv.V), dv.U)
-}
-
-// Convert implements UnitVal conversion
-func (dv DurationVal) Convert(to UnitType) (UnitVal, error) {
-	if to, ok := to.(*DurationUnit); ok {
-		dv.U = to
-		return dv, nil
-	}
-	return nil, ErrorConversion{dv.U, to}
-}

@@ -3,16 +3,7 @@ package convert
 import "github.com/martinlindhe/unit"
 
 // TemperatureUnit is a unit of temperture
-type TemperatureUnit struct {
-	unitCommon
-	from    func(float64) unit.Temperature
-	toFloat func(unit.Temperature) float64
-}
-
-// FromFloat implements SimpleUnit
-func (tu *TemperatureUnit) FromFloat(f float64) UnitVal {
-	return TemperatureVal{tu.from(f), tu}
-}
+type TemperatureUnit = SimpleUnit[unit.Temperature]
 
 // Temperature units
 var (
@@ -20,22 +11,3 @@ var (
 	Fahrenheit = &TemperatureUnit{"°F", unit.FromFahrenheit, unit.Temperature.Fahrenheit}
 	Kelvin     = &TemperatureUnit{"K", unit.FromKelvin, unit.Temperature.Kelvin}
 )
-
-// TemperatureVal is a temperature value with unit
-type TemperatureVal struct {
-	V unit.Temperature
-	U *TemperatureUnit
-}
-
-func (tv TemperatureVal) String() string {
-	return simpleUnitString(tv.U.toFloat(tv.V), tv.U)
-}
-
-// Convert implements UnitVal conversion
-func (tv TemperatureVal) Convert(to UnitType) (UnitVal, error) {
-	if to, ok := to.(*TemperatureUnit); ok {
-		tv.U = to
-		return tv, nil
-	}
-	return nil, ErrorConversion{tv.U, to}
-}
