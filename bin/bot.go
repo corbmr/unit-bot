@@ -26,12 +26,13 @@ func main() {
 	convert.SetCurrencyApiKey(os.Getenv("CURRENCY_API_KEY"))
 
 	discordToken, ok := os.LookupEnv("UNIT_BOT_TOKEN")
-	if ok {
-		stopDiscord := startDiscord(discordToken)
-		defer stopDiscord()
-	} else {
-		slog.Warn("Discord token not found, skipping")
+	if !ok {
+		slog.Error("unit bot token not found")
+		os.Exit(1)
 	}
+
+	stopDiscord := startDiscord(discordToken)
+	defer stopDiscord()
 
 	// Wait here until CTRL-C or other term signal is received.
 	slog.Info("Unit Bot is now running")
@@ -45,15 +46,18 @@ func main() {
 const convertPrefix = "!conv "
 
 func startDiscord(discordToken string) func() {
-	discordClient, err := discordgo.New("Bot " + discordToken)
-	if err != nil {
-		slog.Error("error creating Discord session:", err)
-		panic("error creating Discord session")
-	}
+	discordClient, _ := discordgo.New("Bot " + discordToken)
 
 	discordClient.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsDirectMessages
 	discordClient.LogLevel = discordgo.LogWarning
 	discordClient.AddHandler(processMessage)
+
+	slog.Info("connecting to Discord...")
+	if err := discordClient.Open(); err != nil {
+		slog.Error("error connecting to Discord:", "err", err)
+		panic("error connecting to Discord")
+	}
+	slog.Info("successfully connected to Discord")
 
 	if len(commandGuildId) > 0 {
 		slog.Info("creating commands in guild", "Guild", commandGuildId)
@@ -89,21 +93,15 @@ func startDiscord(discordToken string) func() {
 		}
 	})
 
-	slog.Info("connecting to Discord...")
-	if err := discordClient.Open(); err != nil {
-		slog.Error("error connecting to Discord:", err)
-		panic("error connecting to Discord")
-	}
-	slog.Info("successfully connected to Discord")
 	return func() {
 		if err := cleanupCommands(discordClient); err != nil {
-			slog.Error("error cleaning up commands", err)
+			slog.Error("error cleaning up commands", "err", err)
 		} else {
 			slog.Info("successfully cleaned up commands")
 		}
 
 		if err := discordClient.Close(); err != nil {
-			slog.Info("error disconnecting from Discord:", err)
+			slog.Info("error disconnecting from Discord:", "err", err)
 		} else {
 			slog.Info("successfully disconnected from Discord")
 		}
@@ -119,7 +117,7 @@ func createCommand(
 ) {
 	cmd, err := discord.ApplicationCommandCreate(applicationId, commandGuildId, command)
 	if err != nil {
-		slog.Warn("error creating command:", command.Name, err)
+		slog.Warn("error creating command", "Name", command.Name, "err", err)
 		return
 	}
 
@@ -142,33 +140,40 @@ func cleanupCommands(discord *discordgo.Session) error {
 }
 
 func handleConvertInteraction(discord *discordgo.Session, i *discordgo.InteractionCreate) {
-	var fromValue, toUnit string
-	for _, o := range i.ApplicationCommandData().Options {
-		switch o.Name {
-		case "from-value":
-			fromValue = o.StringValue()
-		case "to-unit":
-			toUnit = o.StringValue()
-		default:
-			slog.Warn("unexpected command option:", o.Name)
+	switch i.Type {
+	case discordgo.InteractionApplicationCommand:
+		var fromValue, toUnit string
+		for _, o := range i.ApplicationCommandData().Options {
+			switch o.Name {
+			case "from-value":
+				fromValue = o.StringValue()
+			case "to-unit":
+				toUnit = o.StringValue()
+			default:
+				slog.Warn("unexpected command option", "Option", o.Name)
+			}
 		}
+
+		convertResult := convert.Convert(fromValue, toUnit)
+
+		discord.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: convertResult,
+			},
+		})
+
+	default:
+		slog.Warn("unexpected interaction type", "Type", i.Type)
 	}
 
-	convertResult := convert.Convert(fromValue, toUnit)
-
-	discord.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: convertResult,
-		},
-	})
 }
 
 func processMessage(discord *discordgo.Session, m *discordgo.MessageCreate) {
 	// Just in case
 	defer func() {
 		if err := recover(); err != nil {
-			slog.Error("Function panicked:", err)
+			slog.Error("Function panicked", "err", err)
 		}
 	}()
 
@@ -192,6 +197,6 @@ func processMessage(discord *discordgo.Session, m *discordgo.MessageCreate) {
 		AllowedMentions: &discordgo.MessageAllowedMentions{},
 	})
 	if err != nil {
-		slog.Info("Unable to send message", err)
+		slog.Info("Unable to send message", "err", err)
 	}
 }
