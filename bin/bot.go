@@ -83,31 +83,6 @@ func startDiscord(discordToken string) func() {
 		Description: "converts your units",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
-				Type:        discordgo.ApplicationCommandOptionNumber,
-				Name:        "value",
-				Description: "value of unit to convert",
-				Required:    true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "from-unit",
-				Description: "unit to convert from",
-				Required:    true,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "to-unit",
-				Description: "unit to convert to",
-				Required:    true,
-			},
-		},
-	}, handleConvertInteraction)
-
-	createCommand(discordClient, &discordgo.ApplicationCommand{
-		Name:        "convert2",
-		Description: "converts your units",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
 				Type:        discordgo.ApplicationCommandOptionString,
 				Name:        "from-value",
 				Description: "value and unit to convert from",
@@ -120,7 +95,7 @@ func startDiscord(discordToken string) func() {
 				Required:    true,
 			},
 		},
-	}, handleConvert2Interaction)
+	}, handleConvertInteraction)
 
 	discordClient.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		cmd := i.ApplicationCommandData().Name
@@ -163,34 +138,6 @@ func createCommand(
 }
 
 func handleConvertInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	var (
-		value            float64
-		fromUnit, toUnit string
-	)
-	for _, o := range i.ApplicationCommandData().Options {
-		switch o.Name {
-		case "value":
-			value = o.FloatValue()
-		case "from-unit":
-			fromUnit = o.StringValue()
-		case "to-unit":
-			toUnit = o.StringValue()
-		default:
-			log.Println("unexpected command option:", o.Name)
-		}
-	}
-
-	convertResult := convert.Convert(value, fromUnit, toUnit)
-
-	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: convertResult,
-		},
-	})
-}
-
-func handleConvert2Interaction(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	var fromValue, toUnit string
 	for _, o := range i.ApplicationCommandData().Options {
 		switch o.Name {
@@ -203,7 +150,7 @@ func handleConvert2Interaction(s *discordgo.Session, i *discordgo.InteractionCre
 		}
 	}
 
-	convertResult := convert.Convert2(fromValue, toUnit)
+	convertResult := convert.Convert(fromValue, toUnit)
 
 	s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
