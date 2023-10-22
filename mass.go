@@ -5,8 +5,8 @@ import "github.com/martinlindhe/unit"
 // MassUnit is a unit of mass
 type MassUnit struct {
 	unitCommon
-	mass unit.Mass
-	to   func(unit.Mass) float64
+	mass    unit.Mass
+	toFloat func(unit.Mass) float64
 }
 
 // FromFloat implements SimpleUnit
@@ -29,7 +29,7 @@ type MassVal struct {
 }
 
 func (mv MassVal) String() string {
-	return simpleUnitString(mv.U.to(mv.V), mv.U)
+	return simpleUnitString(mv.U.toFloat(mv.V), mv.U)
 }
 
 // Convert implements UnitVal conversion

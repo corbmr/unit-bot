@@ -5,8 +5,8 @@ import "github.com/martinlindhe/unit"
 // SpeedUnit is a unit of speed
 type SpeedUnit struct {
 	unitCommon
-	speed unit.Speed
-	to    func(unit.Speed) float64
+	speed   unit.Speed
+	toFloat func(unit.Speed) float64
 }
 
 // FromFloat implements SimpleUnit
@@ -28,7 +28,7 @@ type SpeedVal struct {
 }
 
 func (sv SpeedVal) String() string {
-	return simpleUnitString(sv.U.to(sv.V), sv.U)
+	return simpleUnitString(sv.U.toFloat(sv.V), sv.U)
 }
 
 // Convert implements UnitVal conversion

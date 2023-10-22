@@ -5,8 +5,8 @@ import "github.com/martinlindhe/unit"
 // VolumeUnit is a volumetric unit
 type VolumeUnit struct {
 	unitCommon
-	volume unit.Volume
-	to     func(unit.Volume) float64
+	volume  unit.Volume
+	toFloat func(unit.Volume) float64
 }
 
 // FromFloat implements SimpleUnit
@@ -36,7 +36,7 @@ type VolumeVal struct {
 }
 
 func (vv VolumeVal) String() string {
-	return simpleUnitString(vv.U.to(vv.V), vv.U)
+	return simpleUnitString(vv.U.toFloat(vv.V), vv.U)
 }
 
 // Convert implements UnitVal conversion

@@ -10,8 +10,8 @@ import (
 // LengthUnit is a unit of length
 type LengthUnit struct {
 	unitCommon
-	length unit.Length
-	to     func(unit.Length) float64
+	length  unit.Length
+	toFloat func(unit.Length) float64
 }
 
 // FromFloat implements SimpleUnit
@@ -45,7 +45,7 @@ type LengthVal struct {
 }
 
 func (lv LengthVal) String() string {
-	return simpleUnitString(lv.U.to(lv.V), lv.U)
+	return simpleUnitString(lv.U.toFloat(lv.V), lv.U)
 }
 
 // Convert implements UnitVal conversion

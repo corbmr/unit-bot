@@ -5,8 +5,8 @@ import "github.com/martinlindhe/unit"
 // TemperatureUnit is a unit of temperture
 type TemperatureUnit struct {
 	unitCommon
-	from func(float64) unit.Temperature
-	to   func(unit.Temperature) float64
+	from    func(float64) unit.Temperature
+	toFloat func(unit.Temperature) float64
 }
 
 // FromFloat implements SimpleUnit
@@ -28,7 +28,7 @@ type TemperatureVal struct {
 }
 
 func (tv TemperatureVal) String() string {
-	return simpleUnitString(tv.U.to(tv.V), tv.U)
+	return simpleUnitString(tv.U.toFloat(tv.V), tv.U)
 }
 
 // Convert implements UnitVal conversion

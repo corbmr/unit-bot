@@ -5,8 +5,8 @@ import "github.com/martinlindhe/unit"
 // DurationUnit is a unit of time
 type DurationUnit struct {
 	unitCommon
-	time unit.Duration
-	to   func(unit.Duration) float64
+	time    unit.Duration
+	toFloat func(unit.Duration) float64
 }
 
 // FromFloat implements SimpleUnit
@@ -32,7 +32,7 @@ type DurationVal struct {
 }
 
 func (dv DurationVal) String() string {
-	return simpleUnitString(dv.U.to(dv.V), dv.U)
+	return simpleUnitString(dv.U.toFloat(dv.V), dv.U)
 }
 
 // Convert implements UnitVal conversion
