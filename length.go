@@ -43,7 +43,8 @@ func (u *LengthUnit) FromFloat(f float64) UnitVal {
 func (lv LengthVal) Convert(to UnitType) (UnitVal, error) {
 	switch to := to.(type) {
 	case *LengthUnit:
-		return lv.SimpleUnitValue.Convert(to)
+		lv.unit = &to.SimpleUnit
+		return lv, nil
 	case *FootInchUnit:
 		feet, fraction := math.Modf(lv.value.Feet())
 		inches := (unit.Length(fraction) * unit.Foot).Inches()
@@ -85,7 +86,7 @@ func (val FootInchVal) Convert(to UnitType) (UnitVal, error) {
 	case *LengthUnit:
 		feet := unit.Length(val.Feet) * unit.Foot
 		inches := unit.Length(val.Inches) * unit.Inch
-		return to.FromFloat(float64(feet + inches)), nil
+		return LengthVal{SimpleUnitValue[unit.Length]{feet + inches, &to.SimpleUnit}}, nil
 	default:
 		return nil, ErrorConversion{FootInch, to}
 	}
