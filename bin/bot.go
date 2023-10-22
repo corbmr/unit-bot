@@ -3,6 +3,7 @@
 package main
 
 import (
+	"errors"
 	"log/slog"
 	"os"
 	"os/signal"
@@ -54,6 +55,12 @@ func startDiscord(discordToken string) func() {
 	discordClient.LogLevel = discordgo.LogWarning
 	discordClient.AddHandler(processMessage)
 
+	if len(commandGuildId) > 0 {
+		slog.Info("creating commands in guild", "Guild", commandGuildId)
+	} else {
+		slog.Info("creating global commands")
+	}
+
 	createCommand(discordClient, &discordgo.ApplicationCommand{
 		Name:        "convert",
 		Description: "converts your units",
@@ -89,6 +96,12 @@ func startDiscord(discordToken string) func() {
 	}
 	slog.Info("successfully connected to Discord")
 	return func() {
+		if err := cleanupCommands(discordClient); err != nil {
+			slog.Error("error cleaning up commands", err)
+		} else {
+			slog.Info("successfully cleaned up commands")
+		}
+
 		if err := discordClient.Close(); err != nil {
 			slog.Info("error disconnecting from Discord:", err)
 		} else {
@@ -112,6 +125,20 @@ func createCommand(
 
 	slog.Info("application command created", "Name", cmd.Name, "Id", cmd.ID)
 	commandHandlerMap[command.Name] = handler
+}
+
+func cleanupCommands(discord *discordgo.Session) error {
+	commands, err := discord.ApplicationCommands(applicationId, commandGuildId)
+	if err != nil {
+		return err
+	}
+
+	var errorList []error
+	for _, command := range commands {
+		err = discord.ApplicationCommandDelete(applicationId, commandGuildId, command.ID)
+		errorList = append(errorList, err)
+	}
+	return errors.Join(errorList...)
 }
 
 func handleConvertInteraction(discord *discordgo.Session, i *discordgo.InteractionCreate) {
