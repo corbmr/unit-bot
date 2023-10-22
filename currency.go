@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"sync"
+	"time"
 
 	"github.com/patrickmn/go-cache"
 )
@@ -20,7 +22,11 @@ const (
 
 var (
 	// ErrorCurrencyService occurs when there is an error while calling the currency service
-	ErrorCurrencyService = errors.New("Currency conversion not available right now")
+	ErrorCurrencyService = errors.New("currency conversion not available right now")
+
+	currencyApiKey string
+	currencyOnce   sync.Once
+	currencyCache  *cache.Cache = cache.New(24*time.Hour, 1*time.Hour)
 
 	extraAliases = map[string][]string{
 		"USD": {"$", "US$", "dollar", "dollars"},
@@ -32,6 +38,10 @@ var (
 	}
 )
 
+func SetCurrencyApiKey(apiKey string) {
+	currencyApiKey = apiKey
+}
+
 type supportedCurrencies struct {
 	Results map[string]struct {
 		ID           string
@@ -40,11 +50,8 @@ type supportedCurrencies struct {
 }
 
 func loadCurrencies() {
-	log.Println("Retrieving currencyApiKey")
-	var err error
-	currencyApiKey, err = CurrencyInit()
-	if err != nil {
-		log.Println("Error retrieving currency API key. Currency conversion is not available:", err)
+	if currencyApiKey == "" {
+		log.Println("Currency API key was not set. Currency conversion is not available")
 		return
 	}
 	log.Println("Loading currencies..")
@@ -72,10 +79,6 @@ func loadCurrencies() {
 }
 
 func retrieveSupportedCurrencies() (*supportedCurrencies, error) {
-	if len(currencyApiKey) == 0 {
-		return nil, ErrorCurrencyService
-	}
-
 	currencyURL, _ := url.Parse(endpointCurrencies)
 	q := currencyURL.Query()
 	q.Set("apiKey", currencyApiKey)
@@ -89,13 +92,13 @@ func retrieveSupportedCurrencies() (*supportedCurrencies, error) {
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to read response body: %w", err)
+		return nil, fmt.Errorf("unable to read response body: %w", err)
 	}
 
 	var response supportedCurrencies
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		return nil, fmt.Errorf("Unable to decode currencies response: %w\nBody: %v", err, string(body))
+		return nil, fmt.Errorf("unable to decode currencies response: %w\nBody: %v", err, string(body))
 	}
 
 	return &response, nil
@@ -184,7 +187,7 @@ func getRateNoCache(op string) (float64, error) {
 
 	conversion, ok := response[op]
 	if !ok {
-		return 0, fmt.Errorf("Unexpected response: %v", response)
+		return 0, fmt.Errorf("unexpected response: %v", response)
 	}
 
 	return conversion, nil

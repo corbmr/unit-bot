@@ -17,7 +17,7 @@ func Process(expr string) string {
 	var from UnitVal
 	switch uv := cmd.from.(type) {
 	case unparsedUnitVal:
-		fromUnit, ok := ParseUnit(uv.unit)
+		fromUnit, ok := LookupUnit(uv.unit)
 		if !ok {
 			return fmt.Sprintf("Invalid unit %s", uv.unit)
 		}
@@ -28,7 +28,7 @@ func Process(expr string) string {
 		from = uv
 	}
 
-	toUnit, ok := ParseUnit(cmd.to)
+	toUnit, ok := LookupUnit(cmd.to)
 	if !ok {
 		return fmt.Sprintf("Invalid unit %s", cmd.to)
 	}
@@ -51,7 +51,7 @@ func Convert(from, to string) string {
 	var fromValue UnitVal
 	switch uv := cmd.(type) {
 	case unparsedUnitVal:
-		fromUnit, ok := ParseUnit(uv.unit)
+		fromUnit, ok := LookupUnit(uv.unit)
 		if !ok {
 			return fmt.Sprintf("Invalid unit %s", uv.unit)
 		}
@@ -62,7 +62,7 @@ func Convert(from, to string) string {
 		fromValue = uv
 	}
 
-	toUnit, ok := ParseUnit(to)
+	toUnit, ok := LookupUnit(to)
 	if !ok {
 		return fmt.Sprintf("Invalid unit %s", to)
 	}
@@ -87,14 +87,18 @@ type command struct {
 
 var (
 	unitToken     = p.Token(`[A-Za-z+/$€¥£]+`)
-	inches        = p.Parse2(p.Int, p.RuneIn(`"”`).Opt(), func(i int, _ rune) int { return i })
-	feet          = p.Parse2(p.Int, p.RuneIn(`'’`), func(i int, _ rune) int { return i })
+	inches        = p.Parse2(p.Int, p.RuneIn(`"”`).Opt(), fst[int, rune])
+	feet          = p.Parse2(p.Int, p.RuneIn(`'’`), fst[int, rune])
 	feetInches    = p.Parse2(feet, inches.Or(0), mapFeetInches)
 	simpleUnitVal = p.Parse2(p.Float, unitToken, mapSimpleUnit)
 	currency      = p.Parse2(p.RuneIn(`$€¥£`), p.Float, mapCurrency)
 	fromExpr      = p.First(simpleUnitVal, feetInches, currency)
 	convertExpr   = p.Parse3(fromExpr, p.Atom(`to`), unitToken, func(v any, _ string, u string) command { return command{v, u} })
 )
+
+func fst[A any, B any](a A, b B) A {
+	return a
+}
 
 func mapSimpleUnit(v float64, u string) any {
 	return unparsedUnitVal{v, u}

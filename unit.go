@@ -4,30 +4,16 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
-
-	"github.com/patrickmn/go-cache"
-)
-
-var (
-	// InitCurrency registers a callback to retrieve the apiKey for registering currencies
-	// Currencies are lazily loaded only when needed
-	CurrencyInit func() (string, error)
 )
 
 var (
 	unitMap  map[string]UnitType
 	unitLock sync.RWMutex
-
-	currencyApiKey string
-	currencyOnce   sync.Once
-	currencyCache  *cache.Cache
 )
 
 func init() {
 	unitMap = make(map[string]UnitType)
 	refreshUnitMap()
-	currencyCache = cache.New(24*time.Hour, 1*time.Hour)
 }
 
 func refreshUnitMap() {
@@ -41,20 +27,9 @@ func refreshUnitMap() {
 	}
 }
 
-// SupportedUnits returns all of the supported unit types mapped to a list of alises
-func SupportedUnits() map[UnitType][]string {
-	unitLock.RLock()
-	defer unitLock.RUnlock()
-	supported := make(map[UnitType][]string, len(supportedUnits))
-	for unit, aliases := range supportedUnits {
-		supported[unit] = aliases
-	}
-	return supported
-}
-
-// ParseUnit parses a UnitType.
+// LookupUnit parses a UnitType.
 // Lazily loads currency units
-func ParseUnit(s string) (UnitType, bool) {
+func LookupUnit(s string) (UnitType, bool) {
 	s = strings.ToLower(s)
 	unitLock.RLock()
 	defer unitLock.RUnlock()

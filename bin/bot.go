@@ -30,9 +30,7 @@ func getenvOrPanic(env string) string {
 }
 
 func main() {
-	convert.CurrencyInit = func() (string, error) {
-		return os.Getenv("CURRENCY_API_KEY"), nil
-	}
+	convert.SetCurrencyApiKey(os.Getenv("CURRENCY_API_KEY"))
 
 	discordToken, ok := os.LookupEnv("UNIT_BOT_TOKEN")
 	if ok {
